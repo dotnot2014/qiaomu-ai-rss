@@ -6,6 +6,8 @@
 
 在 Obsidian 中阅读 [乔木 RSS](https://rss.qiaomu.ai/) 精选文章，也可以添加自己的 RSS / Atom 订阅，把值得记住的文章链接加入今日日记。
 
+播客条目可在阅读页收听音频；YouTube 视频条目点击“播放视频”后，在阅读页加载播放器。媒体不可用时仍可打开原文。
+
 Read Qiaomu feeds and your own RSS / Atom subscriptions in a native Obsidian view, switch between original articles and available Chinese AI rewrites or translations, and add article links to your Daily Note.
 
 ![Qiaomu AI RSS 缩略图列表与今日日记分屏](docs/images/listing-2026-09/reading-notes.png)
@@ -102,7 +104,8 @@ GitHub 发布和官方目录审核是独立流程；每个版本的审核结果�
 - **Personal feed requests go directly to the URLs you add or import.** These HTTP(S) hosts receive normal request metadata; feed addresses, groups and article bodies are not uploaded to Qiaomu. OPML import itself does not fetch content. Feed URLs may contain private access tokens and are stored unencrypted in plugin data and OPML exports; keep those exports private.
 - **No account, API key or payment is required for the public reading features in this release.** This plugin only reads existing published AI assets. It does not request new AI generation or send data to model providers. Future service availability is controlled by the service operator.
 - **Article images are enabled by default.** The plugin downloads article images and list thumbnails from their hosts and displays local Blob URLs. Images are cached within this plugin’s vault configuration directory (up to 64 MB / 100 files, 8 MB per image). Image hosts receive normal image requests; cached images can be read offline. You can disable images in settings. Clicking article links opens the linked website in your browser.
-- **No client-side analytics, ads, remote executable code, automatic updates or installation of dependencies.** The plugin does not upload vault notes or send local search queries, favorites or read markers to the service. There is no plugin-specific analytics endpoint. The service may retain ordinary HTTP access/error logs; this plugin does not load the website's analytics scripts.
+- **Media playback is user-initiated.** Podcast audio is fetched from the media URL supplied by the selected entry when played. Clicking “播放视频” loads a sandboxed YouTube embed; YouTube may receive normal request metadata and apply its own privacy policy. Merely opening an article does not create a YouTube iframe. See [Privacy](docs/PRIVACY.md).
+- **No client-side analytics, ads, automatic updates or installation of dependencies.** The plugin does not upload vault notes or send local search queries, favorites or read markers to the service. There is no plugin-specific analytics endpoint. The service may retain ordinary HTTP access/error logs; this plugin does not load the website's analytics scripts. The optional YouTube player runs third-party code inside its restricted iframe only after a click.
 - **Vault-local storage only.** Settings, personal subscriptions with cached entries, recent Qiaomu entries, up to 40 recently opened articles, favorites, local images and up to 5,000 read IDs are saved using Obsidian plugin storage. Captured article snapshots are retained for internal return links even after cache eviction; deleting plugin data breaks those links. Favorites remain until removed; large libraries can increase the size of `data.json`. If you sync your vault's configuration, your sync provider may also sync these files. The note action appends the article title with an internal reader link and optionally selected text to today's Daily Note in the vault. No files outside the vault are read or written.
 - Switching service origins clears the previous Qiaomu service's local reader data and favorites; personal subscriptions and personal favorites remain. Back up your plugin data before switching.
 

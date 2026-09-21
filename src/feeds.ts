@@ -74,6 +74,19 @@ function entryImage(item: Element, contentImage: string | undefined, base: strin
   }
   return contentImage ? safeUrl(contentImage, base) || undefined : undefined;
 }
+function entryAudio(item: Element, base: string): Entry['audio'] {
+  for (const node of Array.from(item.children)) {
+    const name = node.localName.toLowerCase();
+    if (name !== 'enclosure' && name !== 'content' && !(name === 'link' && node.getAttribute('rel') === 'enclosure')) continue;
+    if (name === 'content' && node.getAttribute('medium') !== 'audio' && !node.getAttribute('type')?.toLowerCase().startsWith('audio/')) continue;
+    const type = node.getAttribute('type')?.toLowerCase() || '';
+    if (type && !type.startsWith('audio/')) continue;
+    const raw = node.getAttribute('url') || node.getAttribute('href');
+    const resolved = raw ? safeUrl(raw, baseUrl(node, base)) : null;
+    if (resolved?.startsWith('https://')) return { url: resolved, type: type || null };
+  }
+  return null;
+}
 export async function parseFeed(xml: string, url: string, doc: Document): Promise<{ name: string; entries: Entry[] }> {
   const root = xmlDocument(xml, doc).documentElement;
   const atom = root.localName === 'feed' && root.namespaceURI === 'http://www.w3.org/2005/Atom';
@@ -99,7 +112,7 @@ export async function parseFeed(xml: string, url: string, doc: Document): Promis
     const publishedTs = Date.parse(published);
     const contentBase = contentNode && hasXmlBase(contentNode) ? baseUrl(contentNode, url) : link || base;
     const parsedContent = contentWithBase(raw.slice(0, 100_000), contentBase, doc);
-    const entry: Entry = { id, sourceId, origin: 'local', sourceName: name, title, link: link || url, image: entryImage(item, parsedContent.image, contentBase),
+    const entry: Entry = { id, sourceId, origin: 'local', sourceName: name, title, link: link || url, image: entryImage(item, parsedContent.image, contentBase), audio: entryAudio(item, base),
       published, publishedTs: Number.isNaN(publishedTs) ? null : publishedTs,
       author: atom ? text(child(item, 'author') || root, 'name') : text(item, 'creator') || text(item, 'author'),
       summary: plain(raw, doc).slice(0, 240), content: (parsedContent.html || '<p>订阅源没有提供正文，请打开原文阅读。</p>') + (raw.length > 100_000 ? '<p>正文较长，已缓存部分内容。请打开原文阅读全文。</p>' : '') };

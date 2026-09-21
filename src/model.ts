@@ -16,6 +16,7 @@ export const entrySchema = z.object({
   markdownPath: optionalText, markdown: optionalText,
   link: optionalText, author: optionalText, published: optionalText, publishedTs: z.number().nullish(),
   summary: optionalText, summaryZh: optionalText, content: optionalText, image: optionalText,
+  audio: z.object({ url: z.string(), type: optionalText }).nullish(),
   rewrite: rewriteSchema.nullish(),
 });
 export type Entry = z.infer<typeof entrySchema>;

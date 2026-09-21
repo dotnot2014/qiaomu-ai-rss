@@ -20,9 +20,9 @@ export class RssApi {
       return parsed.data;
     } finally { window.clearTimeout(timer); }
   }
-  sources() { return this.get('/api/sources?ready=rewrite', z.object({ sources: z.array(sourceSchema) })); }
+  sources() { return this.get('/api/sources', z.object({ sources: z.array(sourceSchema) })); }
   entries(source = '', cursor = '') {
-    const query = new URLSearchParams({ limit: source ? '40' : '100', ready: 'rewrite' });
+    const query = new URLSearchParams({ limit: source ? '40' : '100' });
     if (cursor) query.set('cursor', cursor);
     const path = source ? `/api/sources/${encodeURIComponent(source)}/entries` : '/api/entries';
     return this.get(`${path}?${query}`, pageSchema.extend({ entries: z.array(remoteEntrySchema) }));

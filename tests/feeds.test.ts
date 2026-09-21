@@ -29,6 +29,19 @@ describe('feed formats and article identity', () => {
     const { entries } = await parseFeed(xml, 'https://example.com/feed', document);
     expect(entries[0].image).toBe('https://example.com/thumb.jpg');
   });
+  it('retains podcast enclosures without trusting embedded media HTML', async () => {
+    const xml = '<rss><channel><title>Podcast</title><item><guid>one</guid><title>Episode</title><enclosure url="https://media.example/one.mp3" type="audio/mpeg"/><description><![CDATA[<iframe src="https://evil.test"></iframe>]]></description></item></channel></rss>';
+    const { entries } = await parseFeed(xml, 'https://example.com/feed', document);
+    expect(entries[0].audio).toEqual({ url: 'https://media.example/one.mp3', type: 'audio/mpeg' });
+    expect(entries[0].content).not.toContain('<iframe');
+  });
+  it('retains an Atom audio enclosure and rejects an unsafe enclosure URL', async () => {
+    const xml = '<feed xmlns="http://www.w3.org/2005/Atom"><title>Podcast</title><entry><id>one</id><title>Episode</title><link href="https://example.com/one"/><link rel="enclosure" href="https://media.example/one.m4a" type="audio/mp4"/><summary>Listen</summary></entry></feed>';
+    const { entries } = await parseFeed(xml, 'https://example.com/feed', document);
+    expect(entries[0].audio).toEqual({ url: 'https://media.example/one.m4a', type: 'audio/mp4' });
+    const unsafe = await parseFeed(xml.replace('https://media.example/one.m4a', 'javascript:alert(1)'), 'https://example.com/feed', document);
+    expect(unsafe.entries[0].audio).toBeNull();
+  });
   it('resolves relative root xml:base only once', async () => {
     const xml = atom.replace('https://example.org/blog/', '../blog/');
     const { entries } = await parseFeed(xml, 'https://example.org/feeds/feed.xml', document);
