@@ -59,6 +59,13 @@
 .qrs-root.qrs-focus .qrs-sidebar,.qrs-root.qrs-focus .qrs-resize { display:none; }
 .qrs-article { max-width:var(--qrs-article-width); margin:0 auto; padding:30px clamp(24px,5%,60px) 90px; }
 .qrs-article h1 { font-size:clamp(24px,2.5cqw,32px); line-height:1.5; letter-spacing:-.025em; margin:0 0 26px; overflow-wrap:anywhere; font-weight:600; text-wrap:balance; }
+.qrs-media { margin:0 0 26px; padding:16px; border:1px solid var(--background-modifier-border); border-radius:12px; background:var(--background-secondary); }
+.qrs-media strong { display:block; margin-bottom:10px; font-size:14px; }
+.qrs-audio audio { display:block; width:100%; min-height:48px; }
+.qrs-media p { margin:10px 0 0; color:var(--text-muted); font-size:13px; line-height:1.5; }
+.qrs-video-start { min-height:44px; padding:8px 16px; border-radius:8px; background:var(--interactive-accent); color:var(--text-on-accent); font-weight:600; cursor:pointer; }
+.qrs-video-start:focus-visible { outline:2px solid var(--text-accent); outline-offset:3px; }
+.qrs-video-frame { display:block; width:100%; aspect-ratio:16/9; min-height:200px; border:0; border-radius:8px; background:#000; }
 .qrs-feedback { border-radius:6px; background:var(--background-secondary); padding:8px 12px; margin:16px 0; font-size:12px; color:var(--text-muted); }
 .qrs-article h1,.qrs-prose { font-family:var(--qrs-font-family,"Songti SC",Georgia,serif); }
 .qrs-prose { font-size:var(--qrs-font-size); line-height:var(--qrs-line-height); overflow-wrap:anywhere; -webkit-user-select:text; user-select:text; }

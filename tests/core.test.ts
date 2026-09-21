@@ -146,7 +146,7 @@ describe('API contract and failures', () => {
     const transport = vi.fn(async () => ({ status: 200, text: '{"entries":[],"hasMore":true,"nextCursor":"next"}' }));
     const api = new RssApi('https://rss.qiaomu.ai', transport);
     await api.entries('a/b', 'x+y');
-    expect(transport.mock.calls[0][0]).toBe('https://rss.qiaomu.ai/api/sources/a%2Fb/entries?limit=40&ready=rewrite&cursor=x%2By');
+    expect(transport.mock.calls[0][0]).toBe('https://rss.qiaomu.ai/api/sources/a%2Fb/entries?limit=40&cursor=x%2By');
   });
   it('does not let remote entries impersonate vault Markdown', async () => {
     const entry = { ...bundle.entry, origin: 'vault', markdownPath: 'Secret.md', markdown: 'private' };

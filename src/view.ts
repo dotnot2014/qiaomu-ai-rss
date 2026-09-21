@@ -7,6 +7,7 @@ import { enableImageDrag, prepareMarkdownImageDrags } from './image-drag';
 import { SelectionCapture } from './selection';
 import { readingFonts, selectableFonts, fontFamily } from './fonts';
 import { articleFragment } from './content';
+import { renderMedia, stopMedia, youtubeEmbedUrl } from './media';
 import { modeLabels, modeSchema, readingFontSchema, safeUrl, titleOf, type ChannelState, type Bundle, type Entry, type Mode } from './model';
 export const VIEW_TYPE = 'qiaomu-ai-rss-reader';
 type Filter = 'all' | 'unread' | 'favorites';
@@ -143,6 +144,7 @@ export class ReaderView extends ItemView {
     return Promise.resolve();
   }
   onClose(): Promise<void> {
+    stopMedia(this.reader);
     this.saveChannel(); this.channelPicker?.close(false); this.stopRestoring();
     if (this.checkpointTimer) window.clearTimeout(this.checkpointTimer);
     this.selectionCapture?.dispose();
@@ -150,6 +152,7 @@ export class ReaderView extends ItemView {
     return this.plugin.persist().catch(() => undefined);
   }
   reset() {
+    if (this.reader) stopMedia(this.reader);
     this.channelPicker?.close(false); this.stopRestoring();
     if (this.checkpointTimer) window.clearTimeout(this.checkpointTimer);
     this.unreadSession.clear();
@@ -453,7 +456,7 @@ export class ReaderView extends ItemView {
     const version = ++this.articleVersion; const state = this.plugin.state;
     this.bundle = state.cache[entry.id] || state.favorites[entry.id] || { entry, rewrite: entry.rewrite ?? null, translation: null, fetchedAt: 0 };
     state.readIds = [...new Set([...state.readIds, entry.id])].slice(-5000); this.run(() => this.plugin.persist());
-    this.mode = entry.origin === 'local' || entry.origin === 'vault' ? 'original' : state.settings.defaultMode; this.message = ''; this.articleLoading = true; this.reader.setAttribute('aria-busy', 'true');
+    this.mode = entry.origin === 'local' || entry.origin === 'vault' || entry.audio || youtubeEmbedUrl(entry.link) ? 'original' : state.settings.defaultMode; this.message = ''; this.articleLoading = true; this.reader.setAttribute('aria-busy', 'true');
     this.contentEl.addClass('qrs-has-article'); this.renderReader(); this.reader.scrollTop = 0; this.lastReaderTop = 0; this.reader.focus({ preventScroll: true }); this.renderList();
     if (resume) { this.mode = resume.mode; this.pendingScroll = { listTop: resume.listTop, readerTop: resume.readerTop }; this.renderReader(); this.restoreOffsets(); }
     if (entry.origin === 'local') {
@@ -464,7 +467,9 @@ export class ReaderView extends ItemView {
     try {
       const { bundle, warnings } = entry.origin === 'vault' ? { bundle: await this.plugin.vaultSources.article(entry), warnings: [] } : await this.plugin.api().article(entry.id);
       if (this.closed || version !== this.articleVersion) return;
-      this.bundle = bundle; this.message = warnings.join('；'); this.plugin.remember(bundle); this.run(() => this.plugin.persist());
+      this.bundle = bundle; this.message = warnings.join('；');
+      if (this.mode === 'rewrite' && !bundle.rewrite?.body.trim()) this.mode = 'original';
+      this.plugin.remember(bundle); this.run(() => this.plugin.persist());
     } catch (error) {
       if (this.closed || version !== this.articleVersion) return;
       const cached = this.bundle.fetchedAt ? ` 正在显示 ${new Date(this.bundle.fetchedAt).toLocaleString()} 的缓存。` : ' 可重新打开文章重试。';
@@ -531,7 +536,7 @@ export class ReaderView extends ItemView {
     const restoreFocus = active !== this.reader && this.reader.contains(active);
     const scroll = this.reader.scrollTop;
     const previous = keepContent ? this.reader.querySelector('.qrs-article') : null;
-    if (!previous) this.clearImages();
+    if (!previous) { stopMedia(this.reader); this.clearImages(); }
     this.reader.empty();
     // A removed toolbar button must not leave keyboard focus on document.body.
     if (restoreFocus) this.reader.focus({ preventScroll: true });
@@ -601,6 +606,7 @@ export class ReaderView extends ItemView {
     const article = this.reader.createEl('article', { cls: 'qrs-article' });
     article.createEl('h1', { text: titleOf(bundle.entry) });
     if (this.message) article.createDiv({ cls: 'qrs-feedback', text: this.message, attr: { role: 'status' } });
+    if (!this.articleLoading) renderMedia(article, bundle.entry);
     try {
       if (bundle.entry.origin === 'vault' && bundle.entry.markdown != null) {
         const prose = article.createDiv('qrs-prose');
