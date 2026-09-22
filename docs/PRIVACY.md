@@ -14,7 +14,7 @@ Opening the About settings tab loads the reward and public-account QR images fro
 
 Local settings, read IDs, entries and cached/favorite article bodies reside in the vault configuration's plugin folder, using Obsidian's storage API. The note action reads the core Daily Notes configuration and appends the article title and a vault-scoped internal reader link, plus explicitly selected text when requested to today's note, creating it from the configured template when needed. Captured article snapshots remain in plugin data independently of the recent cache, allowing internal links to reopen the saved reading version offline. Deleting plugin data breaks those internal links; note text remains. No selections or notes are transmitted. Your configured sync/backup service may copy these files. The plugin neither encrypts local data nor reads files outside the vault.
 
-To remove local reader data, disable the plugin and remove its `data.json` and `image-cache/` folder in the vault's configured plugin directory. Daily Notes and OPML exports remain under your control. Removing plugin data does not remove service access logs. Contact the maintainer through GitHub for privacy questions; do not post private data or credentials in public issues.
+To remove local reader data, disable the plugin and remove its `data.json` and `image-cache/` folder in the vault's configured plugin directory. Daily Notes and exports remain under your control. Removing plugin data does not remove files you explicitly exported or service access logs. Contact the maintainer through GitHub for privacy questions; do not post private data or credentials in public issues.
 
 ## Personal subscriptions
 
