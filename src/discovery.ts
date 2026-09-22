@@ -105,6 +105,9 @@ export function qiaomuChannelDivider(source: Source): string {
 export function prependFeaturedPodcasts(entries: Entry[], latest: Entry[]): Entry[] {
   return [...new Map([...latest, ...entries].map(entry => [entry.id, entry])).values()];
 }
+export function qiaomuFeaturedEntries(entries: Entry[]): Entry[] {
+  return entries.filter(entry => entry.sourceId !== 'allin' && entry.sourceId !== 'podscribe-all-in-with-chamath-jason-sacks-friedberg');
+}
 export const independentBlogs: DiscoveryFeed[] = blogCatalog.items
   .filter(blog => !BUILT_IN_FEED_URLS.has(blog.url))
   .map(blog => ({ ...blog, description: blog.tags.join(' · ') || '中文独立博客', category: '独立博客', language: '中文', icon: 'notebook-pen' }));
