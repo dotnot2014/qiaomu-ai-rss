@@ -42,17 +42,10 @@ export function renderMedia(article: HTMLElement, entry: Entry): void {
   }
   const embed = youtubeEmbedUrl(entry.link);
   if (!embed) return;
-  const section = article.createEl('section', { cls: 'qrs-media qrs-video' });
-  const button = section.createEl('button', { cls: 'qrs-video-start', text: '播放视频' });
-  const guidance = section.createEl('p', { text: '点击后将从视频平台加载内容。无法播放时可在浏览器打开原文。' });
-  button.addEventListener('click', () => {
-    const frame = section.createEl('iframe', { cls: 'qrs-video-frame', attr: {
-      src: `${embed}?autoplay=1&playsinline=1`, allow: 'autoplay; encrypted-media; picture-in-picture',
-      sandbox: 'allow-scripts allow-same-origin allow-presentation allow-popups',
-      referrerpolicy: 'strict-origin-when-cross-origin', allowfullscreen: '',
-    } });
-    frame.setAttribute('title', '视频播放器');
-    guidance.setText('视频来自外部平台；无法播放时可在浏览器打开原文。');
-    button.remove();
-  });
+  article.createEl('iframe', { cls: 'qrs-video-frame', attr: {
+    src: `${embed}?autoplay=0&playsinline=1`, allow: 'autoplay; encrypted-media; picture-in-picture',
+    sandbox: 'allow-scripts allow-same-origin allow-presentation allow-popups',
+    referrerpolicy: 'strict-origin-when-cross-origin', allowfullscreen: '',
+    title: '视频播放器',
+  } });
 }

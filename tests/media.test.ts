@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest';
 import { RssApi } from '../src/api';
-import { audioUrl, stopMedia, youtubeEmbedUrl } from '../src/media';
+import { audioUrl, renderMedia, stopMedia, youtubeEmbedUrl } from '../src/media';
 import { initialState, type Entry } from '../src/model';
 
 const entry: Entry = { id: 'episode', sourceId: 'podcast', title: 'Episode' };
@@ -27,6 +27,26 @@ describe('media data and source safety', () => {
     expect(youtubeEmbedUrl('https://youtu.be/JtomF4bGxHs')).toBe('https://www.youtube.com/embed/JtomF4bGxHs');
     expect(youtubeEmbedUrl('https://m.youtube.com/shorts/JtomF4bGxHs')).toBe('https://www.youtube.com/embed/JtomF4bGxHs');
     for (const url of ['https://youtube.com.evil.test/watch?v=JtomF4bGxHs', 'https://www.youtube.com/@account', 'http://www.youtube.com/watch?v=JtomF4bGxHs', 'https://www.youtube.com/watch?v=bad']) expect(youtubeEmbedUrl(url)).toBeNull();
+  });
+  it('shows the YouTube player preview immediately without autoplay or extra copy', () => {
+    const article = document.createElement('article');
+    const createEl = function (this: HTMLElement, tag: keyof HTMLElementTagNameMap, options?: { cls?: string; attr?: Record<string, string> }) {
+      const child = document.createElement(tag);
+      if (options?.cls) child.className = options.cls;
+      for (const [name, value] of Object.entries(options?.attr ?? {})) child.setAttribute(name, value);
+      Object.assign(child, { createEl });
+      this.append(child);
+      return child;
+    };
+    Object.assign(article, { createEl });
+
+    renderMedia(article, { ...entry, link: 'https://www.youtube.com/watch?v=JtomF4bGxHs' });
+
+    const frame = article.querySelector('iframe.qrs-video-frame');
+    expect(frame?.getAttribute('src')).toBe('https://www.youtube.com/embed/JtomF4bGxHs?autoplay=0&playsinline=1');
+    expect(frame?.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin allow-presentation allow-popups');
+    expect(frame?.getAttribute('title')).toBe('视频播放器');
+    expect(article.querySelector('button, p')).toBeNull();
   });
   it('stops removed audio and unloads an embedded frame on article switch', () => {
     const root = document.createElement('div');

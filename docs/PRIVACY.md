@@ -4,7 +4,7 @@ Effective: 2026-09-07 (0.11.0). Maintainer: 向阳乔木, [GitHub](https://githu
 
 Qiaomu AI RSS is a local reader for a remote Qiaomu RSS API. It requests public sources, entry lists, article details, and existing translation/rewrite assets. The default server is `rss.qiaomu.ai`. A user-configured server is governed by its own operator's policy.
 
-Podcast entries may include a direct HTTPS audio URL. The player does not preload audio; playing it contacts the media host. YouTube links are recognized only from supported YouTube domains. The plugin creates a restricted YouTube iframe only after the user clicks Play video; YouTube can then receive normal connection metadata and its embedded player runs its own scripts. Switching articles or closing the reader unloads the active media. If playback is blocked, users can deliberately open the original link in a browser.
+Podcast entries may include a direct HTTPS audio URL. The player does not preload audio; playing it contacts the media host. YouTube links are recognized only from supported YouTube domains. Opening a YouTube article creates a restricted YouTube iframe preview without autoplay; YouTube can receive normal connection metadata and its embedded player runs its own scripts before playback. Switching articles or closing the reader unloads the active media. If playback is blocked, users can deliberately open the original link in a browser.
 
 The plugin sends no vault files, local searches, read states or favorites to that API. It has no analytics SDK, tracking identifier, account login or model-provider credentials. The API operator and hosting infrastructure can see standard connection/request metadata, including IP addresses and requested paths, and may retain operational access and error logs. This release does not claim that the service is log-free; server log retention is not controlled by the plugin.
 
@@ -24,7 +24,7 @@ Canceling a subscription removes its list/cache, but keeps favorited article sna
 
 ## Discovery and RSSHub
 
-The bundled catalog is read locally. Search terms, topic filters and browsing behavior are not sent to GitHub, Qiaomu, RSSHub or the blogs. There are no remote favicons or live catalog requests. Clicking Subscribe fetches the selected feed. The website/WeChat service category and provider recommendations were removed in 0.16.0. Existing user subscriptions retain their saved URLs. Clicking a blog home-page or catalog-source link opens that destination in the browser.
+Featured feeds, ten podcast recommendations, and the independent blog catalog are read locally. Their local search terms and filters are not sent to catalog providers. Opening or searching the WeChat tab requests the public catalog from the configured Qiaomu Reader service; online podcast search sends the entered term to that service. Following a podcast reads episodes and available source transcripts; registered Reader sources can also expose existing rewrites. Subscribing does not request AI generation. The service receives ordinary request metadata. The plugin loads no remote favicons and does not fetch individual personal RSS feeds until Subscribe is clicked. Existing user subscriptions retain their saved URLs. Clicking a blog home-page or catalog-source link opens that destination in the browser.
 
 ## Vault Markdown folders
 

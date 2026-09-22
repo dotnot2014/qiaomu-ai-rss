@@ -1,4 +1,10 @@
-# Validation — 0.17.0
+# Validation — 0.19.0 candidate
+
+## 0.19.0 local candidate (2026-09-22)
+
+`npm run check` passes ESLint, 74 tests in 9 files, TypeScript, and the production build. The built `main.js`, `manifest.json`, and `styles.css` were copied into the local `rockfish` vault and the plugin was reloaded; all three file digests matched the build output. In actual Obsidian, the Explore view showed all four collections, loaded 377 WeChat accounts and displayed the requested ten creator/media accounts first. The podcast tab said “精选 10 个播客 · 搜索可添加更多”; searching `lex` returned five results from the live API. A read-only Reader check loaded 30 `wechat-elsewhere` API entries and showed 20 distinct articles; its article view displayed the gray learning-purpose notice and a direct WeChat original link. These desktop host checks do not establish a physical iPhone selection-menu pass. YouTube preview behavior has automated tests but has not been manually played in the host for this candidate.
+
+## Earlier validation
 
 Checked on 2026-09-07. This is an original plugin connected to the real public Qiaomu RSS API. The Obsidian checks use a disposable **Qiaomu RSS QA** vault, never a personal knowledge vault.
 

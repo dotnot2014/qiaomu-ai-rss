@@ -13,8 +13,10 @@ export const translationSchema = z.object({
 });
 export const entrySchema = z.object({
   id: z.string().min(1), sourceId: z.string(), origin: z.enum(['local', 'qiaomu', 'vault']).optional(), sourceName: optionalText, title: z.string(), titleZh: optionalText,
-  markdownPath: optionalText, markdown: optionalText,
+  markdownPath: optionalText, markdown: optionalText, podcastSlug: optionalText, episodeSlug: optionalText,
   link: optionalText, author: optionalText, published: optionalText, publishedTs: z.number().nullish(),
+  publishedRelative: optionalText, podcastViews: z.number().int().nonnegative().nullish(),
+  podcastWordCount: z.number().int().nonnegative().nullish(), podcastDurationSeconds: z.number().int().nonnegative().nullish(),
   summary: optionalText, summaryZh: optionalText, content: optionalText, image: optionalText,
   audio: z.object({ url: z.string(), type: optionalText }).nullish(),
   rewrite: rewriteSchema.nullish(),
@@ -22,6 +24,11 @@ export const entrySchema = z.object({
 export type Entry = z.infer<typeof entrySchema>;
 export const sourceSchema = z.object({ id: z.string(), name: z.string(), category: optionalText, enabled: z.boolean().optional() });
 export type Source = z.infer<typeof sourceSchema>;
+export function podcastDefaultMode(entry: Entry, sources: Source[], followedPodcasts: string[]): Mode | null {
+  if (entry.podcastSlug) return 'original';
+  return sources.some(source => source.id === entry.sourceId && source.category === 'podcast') || followedPodcasts.includes(entry.sourceId)
+    ? 'rewrite' : null;
+}
 export const bundleSchema = z.object({ entry: entrySchema, rewrite: rewriteSchema.nullable(), translation: translationSchema.nullable(), fetchedAt: z.number() });
 export type Bundle = z.infer<typeof bundleSchema>;
 export const pageSchema = z.object({ entries: z.array(entrySchema), hasMore: z.boolean().optional(), nextCursor: z.string().nullish() });
@@ -43,10 +50,10 @@ export const stateSchema = z.object({
     defaultMode: modeSchema.default('rewrite'), remoteImages: z.boolean().default(true), listWidth: z.number().min(220).max(520).default(300),
     fontSize: z.number().int().min(14).max(32).default(19), customFont: z.string().max(200).catch('').default(''), fontFamily: readingFontSchema.default('fangsong'),
     lineHeight: z.number().min(1.5).max(2.4).default(1.9), lineWidth: z.union([z.literal(28), z.literal(36), z.literal(44)]).default(36),
-    selectionPopup: z.boolean().default(true), markdownFolders: z.array(z.string()).default([]),
+    selectionPopup: z.boolean().default(true), markdownFolders: z.array(z.string()).default([]), followedPodcasts: z.array(z.string()).default([]), podcastNames: z.record(z.string(), z.string()).default({}),
     lastSource: z.string().max(300).default(''),
   }).default({ baseUrl: 'https://rss.qiaomu.ai', folder: 'Qiaomu RSS', defaultMode: 'rewrite', remoteImages: true, listWidth: 300,
-    fontSize: 19, fontFamily: 'fangsong', customFont: '', lineHeight: 1.9, lineWidth: 36, lastSource: '', selectionPopup: true, markdownFolders: [] }),
+    fontSize: 19, fontFamily: 'fangsong', customFont: '', lineHeight: 1.9, lineWidth: 36, lastSource: '', selectionPopup: true, markdownFolders: [], followedPodcasts: [], podcastNames: {} }),
   readIds: z.array(z.string()).default([]), favorites: z.record(z.string(), bundleSchema).default({}),
   entries: z.array(entrySchema).default([]), sources: z.array(sourceSchema).default([]),
   subscriptions: z.array(subscriptionSchema).default([]),
@@ -55,7 +62,14 @@ export const stateSchema = z.object({
   cache: z.record(z.string(), bundleSchema).default({}), updatedAt: z.number().default(0),
 });
 export type State = z.infer<typeof stateSchema>;
-export function initialState(data: unknown): State { return stateSchema.parse(data ?? {}); }
+export function initialState(data: unknown): State {
+  const state = stateSchema.parse(data ?? {});
+  const last = state.settings.lastSource;
+  if (state.sources.some(source => source.id === last && source.category === 'podcast') && !state.settings.followedPodcasts.includes(last)) {
+    state.settings.followedPodcasts.push(last);
+  }
+  return state;
+}
 export function titleOf(entry: Entry): string { return entry.titleZh?.trim() || entry.title; }
 export function safeUrl(value: string, base?: string): string | null {
   try {

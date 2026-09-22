@@ -1,5 +1,6 @@
 import { Modal, Notice, Setting, setIcon } from 'obsidian';
 import { DiscoveryPanel } from './discovery-view';
+import { podcastRecommendations } from './discovery';
 import { VaultFilePicker, VaultFolderPicker, vaultSourceId } from './vault-source';
 import type QiaomuRssPlugin from './main';
 import { exportOpml, MAX_SUBSCRIPTIONS, parseOpml, type FeedInput } from './feeds';
@@ -58,6 +59,19 @@ export class SubscriptionManager extends Modal {
     if (!this.plugin.state.settings.markdownFolders.length) this.body.createEl('p', { cls: 'qrs-subscription-help', text: '选择剪藏文件夹或笔记，在阅读器中阅读。' });
   }
   private renderMine() {
+    const followed = this.plugin.state.settings.followedPodcasts;
+    if (followed.length) {
+      this.body.createEl('h3', { text: '已关注播客' });
+      for (const id of followed) {
+        const name = this.plugin.state.settings.podcastNames[id] || podcastRecommendations.find(show => show.sourceId === id)?.name || this.plugin.state.sources.find(source => source.id === id)?.name || id;
+        new Setting(this.body).setName(name)
+          .addButton(button => button.setButtonText('阅读').onClick(() => { void this.plugin.followPodcast(id); }))
+          .addButton(button => button.setButtonText('取消订阅').onClick(async () => {
+            await this.plugin.unfollowPodcast(id);
+            if (this.tab === 'mine' && this.body.isConnected) { this.body.empty(); this.renderMine(); }
+          }));
+      }
+    }
     const form = this.body.createEl('form', { cls: 'qrs-subscription-add' });
     const fieldId = crypto.randomUUID();
     form.createEl('label', { cls: 'qrs-visually-hidden', text: 'RSS 或 Atom 地址', attr: { for: `qrs-feed-${fieldId}` } });
