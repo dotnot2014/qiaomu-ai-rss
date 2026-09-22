@@ -107,6 +107,35 @@ describe('QMReader podcast integration', () => {
     expect(bundle.entry.content).toContain('The full original text.');
     expect(bundle.rewrite).toBeNull();
   });
+  it('links a direct All-In transcript to a uniquely matching full YouTube episode', async () => {
+    const video = 'https://www.youtube.com/watch?v=JtomF4bGxHs';
+    const api = new RssApi('https://rss.qiaomu.ai', async url => {
+      if (url.includes('/episodes?')) return response({ episodes: [{ show_slug: 'all-in-with-chamath-jason-sacks-friedberg', episode_slug: 'adam', title: 'Adam Foroughi', published_at: '2026-09-22T10:00:00Z' }], pagination: { has_next: false } });
+      if (url.endsWith('/transcript')) return response({ transcript: { segments: [{ text: 'Full source transcript' }] } });
+      if (url.includes('/sources/allin/entries')) return response({ entries: [
+        { id: 'video', sourceId: 'allin', title: 'Adam Foroughi', link: video, publishedTs: Date.parse('2026-09-22T10:00:00Z') },
+        { id: 'short', sourceId: 'allin', title: 'Short clip', link: 'https://www.youtube.com/shorts/yLnJpR8H2kY' },
+      ] });
+      throw new Error('Unexpected request');
+    });
+    const page = await api.podcastEpisodes('podscribe-all-in-with-chamath-jason-sacks-friedberg');
+    const { bundle } = await api.article(page.entries[0].id, page.entries[0]);
+    expect(bundle.entry.videoUrl).toBe(video);
+    expect(bundle.entry.content).toContain('Full source transcript');
+    expect(bundle.rewrite).toBeNull();
+  });
+  it('does not link ambiguous or differently dated YouTube episodes', async () => {
+    const preview = { id: 'podscribe-the-joe-rogan-experience/ron', sourceId: 'podscribe-the-joe-rogan-experience', title: '#2555 - Ron White', podcastSlug: 'the-joe-rogan-experience', episodeSlug: 'ron', publishedTs: Date.parse('2026-09-22T10:00:00Z') };
+    const api = new RssApi('https://rss.qiaomu.ai', async url => {
+      if (url.endsWith('/transcript')) return response({ transcript: { segments: [{ text: 'Transcript' }] } });
+      if (url.includes('/sources/joerogan/entries')) return response({ entries: [
+        { id: 'old', sourceId: 'joerogan', title: 'Joe Rogan Experience #2555 - Ron White', link: 'https://www.youtube.com/watch?v=J3SIbt2s28Y', publishedTs: Date.parse('2026-08-01T10:00:00Z') },
+      ] });
+      throw new Error('Unexpected request');
+    });
+    const { bundle } = await api.article(preview.id, preview);
+    expect(bundle.entry.videoUrl).toBeNull();
+  });
 
   it('keeps exact dates and upstream metadata without inventing dates from relative text', async () => {
     const api = new RssApi('https://rss.qiaomu.ai', async () => response({ episodes: [

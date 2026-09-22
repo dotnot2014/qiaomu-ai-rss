@@ -497,7 +497,7 @@ export class ReaderView extends ItemView {
     state.readIds = [...new Set([...state.readIds, entry.id])].slice(-5000); this.run(() => this.plugin.persist());
     this.mode = entry.origin === 'local' || entry.origin === 'vault' ? 'original'
       : podcastDefaultMode(entry, state.sources, state.settings.followedPodcasts)
-        ?? (entry.audio || youtubeEmbedUrl(entry.link) ? 'original' : state.settings.defaultMode);
+        ?? (entry.audio || youtubeEmbedUrl(entry.videoUrl || entry.link) ? 'original' : state.settings.defaultMode);
     this.message = ''; this.articleLoading = true; this.reader.setAttribute('aria-busy', 'true');
     this.contentEl.addClass('qrs-has-article'); this.renderReader(); this.reader.scrollTop = 0; this.lastReaderTop = 0; this.reader.focus({ preventScroll: true }); this.renderList();
     if (resume) { this.mode = resume.mode; this.pendingScroll = { listTop: resume.listTop, readerTop: resume.readerTop }; this.renderReader(); this.restoreOffsets(); }
@@ -646,6 +646,8 @@ export class ReaderView extends ItemView {
         void this.app.workspace.openLinkText(bundle.entry.markdownPath!, '', true);
       }));
       if (link) menu.addItem(item => item.setTitle('在浏览器打开原文').setIcon('external-link').onClick(() => { this.contentEl.win.open(link, '_blank', 'noopener,noreferrer'); }));
+      const video = safeUrl(bundle.entry.videoUrl || '');
+      if (video && youtubeEmbedUrl(video)) menu.addItem(item => item.setTitle('打开本期视频').setIcon('video').onClick(() => { this.contentEl.win.open(video, '_blank', 'noopener,noreferrer'); }));
       menu.addItem(item => item.setTitle('重新加载文章').setIcon('refresh-cw').onClick(() => { void this.openArticle(bundle.entry); }));
       menu.addItem(item => item.setTitle('选择频道').setIcon('rss').onClick(() => this.pickChannel()));
       const rect = more.getBoundingClientRect(); menu.showAtPosition({ x: rect.left, y: rect.bottom });

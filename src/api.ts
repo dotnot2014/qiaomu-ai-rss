@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { bundleSchema, entrySchema, pageSchema, rewriteSchema, serviceUrl, sourceSchema, translationSchema, type Bundle, type Entry } from './model';
+import { youtubeEmbedUrl } from './media';
 const remoteEntrySchema = entrySchema.transform(entry => ({ ...entry, origin: 'qiaomu' as const, markdown: undefined, markdownPath: undefined }));
 export interface HttpResponse { status: number; text: string }
 export type Transport = (url: string) => Promise<HttpResponse>;
@@ -19,6 +20,19 @@ function transcriptHtml(value: string, sourceUrl?: string): string {
   const paragraphs = value.split(/\n+/).map(line => line.trim()).filter(Boolean);
   const source = sourceUrl && /^https:\/\//.test(sourceUrl) ? `<p><a href="${escape(sourceUrl)}">源文稿页面</a></p>` : '';
   return `${source}${paragraphs.map(line => `<p>${escape(line)}</p>`).join('')}`;
+}
+function normalizedPodcastTitle(value: string): string {
+  return value.normalize('NFKC').toLowerCase().replace(/&amp;/g, '&').replace(/[^\p{Letter}\p{Number}]+/gu, ' ').trim();
+}
+function matchingVideo(episode: Entry, candidates: Entry[], sourceId: string): string | null {
+  const title = normalizedPodcastTitle(episode.title);
+  const matches = candidates.filter(candidate => {
+    const candidateTitle = sourceId === 'joerogan' ? candidate.title.replace(/^Joe Rogan Experience\s*/i, '') : candidate.title;
+    return candidate.sourceId === sourceId && youtubeEmbedUrl(candidate.link) &&
+      normalizedPodcastTitle(candidateTitle) === title &&
+      (!episode.publishedTs || !candidate.publishedTs || Math.abs(episode.publishedTs - candidate.publishedTs) <= 7 * 86400000);
+  });
+  return matches.length === 1 ? matches[0].link || null : null;
 }
 export class RssApi {
   private base: string;
@@ -71,6 +85,13 @@ export class RssApi {
       const text = detail.transcript.segments.map(segment => segment.text.trim()).filter(Boolean).join('\n');
       if (!text) throw new Error('这期播客暂无原文稿。');
       const entry = { ...preview, content: transcriptHtml(text, detail.episode?.url || preview.link || undefined) };
+      const videoSource = slug === 'all-in-with-chamath-jason-sacks-friedberg' ? 'allin' : slug === 'the-joe-rogan-experience' ? 'joerogan' : null;
+      if (videoSource) {
+        try {
+          const page = await this.entries(videoSource, '', 100);
+          entry.videoUrl = matchingVideo(entry, page.entries, videoSource);
+        } catch { /* A video is optional; the source transcript remains readable. */ }
+      }
       return { bundle: bundleSchema.parse({ entry, rewrite: null, translation: null, fetchedAt: Date.now() }), warnings: [] };
     }
     const path = `/api/entry/${encodeURIComponent(id)}`;

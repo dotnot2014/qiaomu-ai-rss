@@ -40,7 +40,7 @@ export function renderMedia(article: HTMLElement, entry: Entry): void {
     player.addEventListener('error', () => { section.querySelector('.qrs-media-error')?.remove(); section.createEl('p', { cls: 'qrs-media-error', text: '音频暂时无法播放，可打开原文收听。' }); });
     return;
   }
-  const embed = youtubeEmbedUrl(entry.link);
+  const embed = youtubeEmbedUrl(entry.videoUrl || entry.link);
   if (!embed) return;
   article.createEl('iframe', { cls: 'qrs-video-frame', attr: {
     src: `${embed}?autoplay=0&playsinline=1`, allow: 'autoplay; encrypted-media; picture-in-picture',
