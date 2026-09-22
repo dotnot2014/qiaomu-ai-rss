@@ -68,6 +68,14 @@ export function xiaoyuzhouPodcasts(sources: Source[]): Source[] {
 }
 const featuredXiaoyuzhouIds = ['zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie'] as const;
 const hiddenQiaomuChannelIds = new Set(['wechat-bestblogs-2d790e38f8af54c5af77fa5fed687a7c66d34c22', 'levelingup']);
+// Reader may register a visitor's WeChat subscription as a shared source.
+// Only editorial picks belong in the plugin's public Qiaomu Channels section.
+const featuredWechatChannelIds = new Set([
+  'wechat-qiaomu', 'wechat-agentju', 'wechat-cyberzen', 'wechat-kazike',
+  'wechat-latepost', 'wechat-xinzhiyuan', 'wechat-elsewhere', 'wechat-zangai',
+  'wechat-bestblogs-1c3e3571b1627d23ee9c64521a0b0a41d3fe2987',
+  'wechat-bestblogs-9645a69180041ff935c458753174fa8bc2061295',
+]);
 export function featuredXiaoyuzhouPodcasts(sources: Source[]): Source[] {
   const available = new Map(xiaoyuzhouPodcasts(sources).map(source => [source.id, source]));
   return featuredXiaoyuzhouIds.map(id => available.get(id)).filter((source): source is Source => !!source);
@@ -75,6 +83,7 @@ export function featuredXiaoyuzhouPodcasts(sources: Source[]): Source[] {
 export function readerChannelSources(sources: Source[]): Source[] {
   const featuredIds = new Set(featuredXiaoyuzhouPodcasts(sources).map(source => source.id));
   return sources.filter(source => source.enabled !== false && !hiddenQiaomuChannelIds.has(source.id) &&
+    (!source.id.startsWith('wechat-') || featuredWechatChannelIds.has(source.id)) &&
     (source.category !== 'podcast' || featuredIds.has(source.id)));
 }
 const newsletterSourceIds = new Set([
