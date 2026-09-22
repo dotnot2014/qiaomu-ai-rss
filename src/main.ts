@@ -387,7 +387,8 @@ class RssSettings extends PluginSettingTab {
       '来源': [definitions[2], definitions[1], definitions[3]],
       '摘录': [excerpt, definitions[7]],
       '关于': [definitions[6], ...[
-        ['建议与问题反馈', 'GitHub Issues', 'https://github.com/joeseesun/qiaomu-ai-rss/issues'],
+        ['反馈 Bug', '在 GitHub 提交问题', 'https://github.com/joeseesun/qiaomu-ai-rss/issues/new'],
+        ['联系邮箱', 'vista8@gmail.com', 'mailto:vista8@gmail.com'],
         ['使用说明', '打开说明', 'https://github.com/joeseesun/qiaomu-ai-rss#readme'],
         ['向阳乔木', 'qiaomu.ai', 'https://qiaomu.ai/'],
         ['乔木博客', 'blog.qiaomu.ai', 'https://blog.qiaomu.ai/'],
@@ -395,7 +396,16 @@ class RssSettings extends PluginSettingTab {
         ['GitHub', '@joeseesun', 'https://github.com/joeseesun'],
       ].map(([name, label, href]) => ({ name, render: (setting: import('obsidian').Setting) => {
         setting.controlEl.createEl('a', { text: label, href, attr: { target: '_blank', rel: 'noopener noreferrer' } });
-      } })), { name: '开源许可', desc: 'Copyright © 向阳乔木 · GPL-3.0-only。内置朱雀仿宋遵循 SIL OFL 1.1。' }],
+      } })), { name: '微信', render: setting => { setting.controlEl.createSpan({ text: 'joeseesun' }); } },
+      { name: '打赏支持', desc: '感谢支持乔木持续维护这个插件。', render: setting => {
+        setting.settingEl.addClass('qrs-settings-qr');
+        setting.controlEl.createEl('img', { attr: { src: 'https://radio.qiaomu.ai/assets/qiaomu_reward_qr.png', alt: '向阳乔木打赏二维码', loading: 'lazy', width: '160', height: '160' } });
+      } },
+      { name: '关注公众号', desc: '向阳乔木推荐看', render: setting => {
+        setting.settingEl.addClass('qrs-settings-qr');
+        setting.controlEl.createEl('img', { attr: { src: 'https://radio.qiaomu.ai/assets/qiaomu_wechat_public_account_qr.jpg', alt: '向阳乔木推荐看公众号二维码', loading: 'lazy', width: '160', height: '160' } });
+      } },
+      { name: '开源许可', desc: 'Copyright © 向阳乔木 · GPL-3.0-only。内置朱雀仿宋遵循 SIL OFL 1.1。' }],
     };
     return [{ name: 'Qiaomu AI RSS', searchable: false, render: setting => {
       setting.settingEl.addClass('qrs-settings-header');

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { discoveryFeeds, featuredXiaoyuzhouPodcasts, filterDiscovery, independentBlogs, podcastRecommendations, prependFeaturedPodcasts, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
+import { discoveryFeeds, featuredXiaoyuzhouPodcasts, filterDiscovery, independentBlogs, podcastRecommendations, prependFeaturedPodcasts, qiaomuChannelDivider, readerChannelSources, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
 import { initialState, safeUrl, withServiceOrigin } from '../src/model';
+import { compareChannelNames } from '../src/channel-order';
 
 describe('local discovery catalog', () => {
   it('bundles unique safe feed URLs and blog home pages', () => {
@@ -58,6 +59,34 @@ describe('local discovery catalog', () => {
     const entry = (id: string, sourceId: string) => ({ id, sourceId, title: id });
     expect(prependFeaturedPodcasts([entry('news', 'news'), entry('zhang-1', 'zhangxiaojun')], [entry('zhang-1', 'zhangxiaojun'), entry('next-1', 'nexttoken')]).map(item => item.id))
       .toEqual(['zhang-1', 'next-1', 'news']);
+  });
+  it('shows selected Xiaoyuzhou shows as Qiaomu channels before subscription', () => {
+    const source = (id: string, category: string, siteUrl?: string, enabled = true) => ({ id, name: id, category, siteUrl, enabled });
+    const xy = (id: string) => source(id, 'podcast', `https://www.xiaoyuzhoufm.com/podcast/${id}`);
+    const sources = [source('news', 'news'), source('levelingup', 'article'), xy('zhangxiaojun'), xy('nexttoken'), xy('42zhangjing'), xy('latetalk'), xy('bannatie'),
+      source('wechat-bestblogs-2d790e38f8af54c5af77fa5fed687a7c66d34c22', 'article', 'https://mp.weixin.qq.com/'),
+      source('lexfridman', 'podcast', 'https://lexfridman.com'), source('allin', 'podcast', 'https://youtube.com', false)];
+    expect(readerChannelSources(sources).map(item => item.id)).toEqual(['news', 'zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie']);
+    expect(readerChannelSources(sources).map(item => item.id)).not.toContain('lexfridman');
+    expect(readerChannelSources(sources).map(item => item.id)).not.toContain('allin');
+    expect(readerChannelSources(sources).map(item => item.id)).not.toContain('levelingup');
+  });
+  it('adds visual dividers from source locations without changing source identity', () => {
+    const source = (id: string, category: string, siteUrl: string) => ({ id, name: id, category, siteUrl });
+    expect(qiaomuChannelDivider(source('wechat-qiaomu', 'article', 'https://mp.weixin.qq.com/'))).toBe('微信公众号');
+    expect(qiaomuChannelDivider(source('zhangxiaojun', 'podcast', 'https://www.xiaoyuzhoufm.com/podcast/abc'))).toBe('小宇宙');
+    expect(qiaomuChannelDivider(source('video', 'podcast', 'https://www.youtube.com/@example'))).toBe('YouTube');
+    expect(qiaomuChannelDivider(source('bensbites', 'article', 'https://www.bensbites.com'))).toBe('Newsletter');
+    expect(qiaomuChannelDivider(source('producthunt', 'news', 'https://www.producthunt.com'))).toBe('资讯');
+    expect(qiaomuChannelDivider(source('qiaomu-blog', 'article', 'https://blog.qiaomu.ai'))).toBe('博客与网站');
+  });
+  it('sorts channels by Chinese pinyin and English letters within each divider', () => {
+    const items = ['张三', '阿里', '百度'].map(name => ({ name, id: name }));
+    expect(items.sort(compareChannelNames).map(item => item.name)).toEqual(['阿里', '百度', '张三']);
+    const english = ['Zulu', 'alpha', 'Beta'].map(name => ({ name, id: name }));
+    expect(english.sort(compareChannelNames).map(item => item.name)).toEqual(['alpha', 'Beta', 'Zulu']);
+    const mixed = ['歸藏', 'elsewhere', 'AGENT橘', '李继刚'].map(name => ({ name, id: name }));
+    expect(mixed.sort(compareChannelNames).map(item => item.name)).toEqual(['AGENT橘', 'elsewhere', '歸藏', '李继刚']);
   });
   it('migrates settings and preserves existing feed URLs across instance and Qiaomu changes', () => {
     const state = initialState({ settings: { folder: 'Notes' }, subscriptions: [{ id: 'test', url: 'https://old.example/36kr/newsflashes', name: 'News' }] });

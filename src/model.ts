@@ -14,7 +14,7 @@ export const translationSchema = z.object({
 export const entrySchema = z.object({
   id: z.string().min(1), sourceId: z.string(), origin: z.enum(['local', 'qiaomu', 'vault']).optional(), sourceName: optionalText, title: z.string(), titleZh: optionalText,
   markdownPath: optionalText, markdown: optionalText, podcastSlug: optionalText, episodeSlug: optionalText,
-  link: optionalText, author: optionalText, published: optionalText, publishedTs: z.number().nullish(),
+  link: optionalText, videoUrl: optionalText, author: optionalText, published: optionalText, publishedTs: z.number().nullish(),
   publishedRelative: optionalText, podcastViews: z.number().int().nonnegative().nullish(),
   podcastWordCount: z.number().int().nonnegative().nullish(), podcastDurationSeconds: z.number().int().nonnegative().nullish(),
   summary: optionalText, summaryZh: optionalText, content: optionalText, image: optionalText,

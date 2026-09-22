@@ -67,9 +67,31 @@ export function xiaoyuzhouPodcasts(sources: Source[]): Source[] {
   });
 }
 const featuredXiaoyuzhouIds = ['zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie'] as const;
+const hiddenQiaomuChannelIds = new Set(['wechat-bestblogs-2d790e38f8af54c5af77fa5fed687a7c66d34c22', 'levelingup']);
 export function featuredXiaoyuzhouPodcasts(sources: Source[]): Source[] {
   const available = new Map(xiaoyuzhouPodcasts(sources).map(source => [source.id, source]));
   return featuredXiaoyuzhouIds.map(id => available.get(id)).filter((source): source is Source => !!source);
+}
+export function readerChannelSources(sources: Source[]): Source[] {
+  const featuredIds = new Set(featuredXiaoyuzhouPodcasts(sources).map(source => source.id));
+  return sources.filter(source => source.enabled !== false && !hiddenQiaomuChannelIds.has(source.id) &&
+    (source.category !== 'podcast' || featuredIds.has(source.id)));
+}
+const newsletterSourceIds = new Set([
+  'james-clear', 'bensbites', 'levelingup', 'tldrai', 'importai', 'nlp-elvis', 'interconnects',
+  'brainfood', 'oneusefulthing', 'whytryai', 'chinai', 'dankoe', 'tylerfolkman',
+  'superhuman_ai', 'aibreakfast', 'garymarcus', 'dwarkesh', 'experimental-history',
+  'construction-physics', 'ds-ai-section',
+]);
+export function qiaomuChannelDivider(source: Source): string {
+  let host = '';
+  try { host = new URL(source.siteUrl || '').hostname.toLowerCase(); } catch { /* Some feeds have no site URL. */ }
+  if (host === 'mp.weixin.qq.com' || source.id.startsWith('wechat-')) return '微信公众号';
+  if (host === 'www.xiaoyuzhoufm.com') return '小宇宙';
+  if (host === 'youtube.com' || host === 'www.youtube.com' || host === 'youtu.be') return 'YouTube';
+  if (newsletterSourceIds.has(source.id)) return 'Newsletter';
+  if (source.category === 'news') return '资讯';
+  return '博客与网站';
 }
 export function prependFeaturedPodcasts(entries: Entry[], latest: Entry[]): Entry[] {
   return [...new Map([...latest, ...entries].map(entry => [entry.id, entry])).values()];

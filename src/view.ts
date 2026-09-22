@@ -8,8 +8,8 @@ import { SelectionCapture } from './selection';
 import { readingFonts, selectableFonts, fontFamily } from './fonts';
 import { articleFragment } from './content';
 import { renderMedia, stopMedia, youtubeEmbedUrl } from './media';
-import { sameWechatArticle, uniqueWechatEntries, wechatArticleKey } from './wechat-articles';
-import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts } from './discovery';
+import { sameRemoteContent, uniqueRemoteEntries, wechatArticleKey, xiaoyuzhouEpisodeKey } from './wechat-articles';
+import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, qiaomuChannelDivider, readerChannelSources } from './discovery';
 import { modeLabels, modeSchema, podcastDefaultMode, readingFontSchema, safeUrl, titleOf, type ChannelState, type Bundle, type Entry, type Mode } from './model';
 export const VIEW_TYPE = 'qiaomu-ai-rss-reader';
 type Filter = 'all' | 'unread' | 'favorites';
@@ -172,7 +172,7 @@ export class ReaderView extends ItemView {
     const remembered = this.plugin.state.settings.lastSource;
     const localExists = this.plugin.state.subscriptions.some(feed => feed.id === remembered);
     const groupExists = remembered.startsWith('@group:') && this.plugin.state.subscriptions.some(feed => feed.group === remembered.slice(7));
-    this.focused = false; this.source = remembered === '@local' || this.plugin.state.settings.markdownFolders.some(folder => vaultSourceId(folder) === remembered) || groupExists || localExists || this.plugin.state.settings.followedPodcasts.includes(remembered) || this.plugin.state.sources.some(source => source.id === remembered) ? remembered : '';
+    this.focused = false; this.source = remembered !== 'levelingup' && (remembered === '@local' || this.plugin.state.settings.markdownFolders.some(folder => vaultSourceId(folder) === remembered) || groupExists || localExists || this.plugin.state.settings.followedPodcasts.includes(remembered) || this.plugin.state.sources.some(source => source.id === remembered)) ? remembered : '';
     this.cursor = ''; this.bundle = null; this.loading = false; this.hasMore = false;
     this.mode = this.plugin.state.settings.defaultMode;
     this.entries = this.personalScope() ? this.localEntries() : this.source ? [] : this.plugin.state.entries;
@@ -262,9 +262,13 @@ export class ReaderView extends ItemView {
       ...this.plugin.state.settings.markdownFolders.map(folder => ({ id: vaultSourceId(folder), name: folder === '/' ? '整个库' : folder.split('/').at(-1)!, section: '库内文件夹' as const, subtitle: folder, icon: folder.endsWith('.md') ? 'file-text' : 'folder-open' })),
       ...groups.map(group => ({ id: `@group:${group}`, name: group, section: '订阅分组' as const,
         subtitle: `${feeds.filter(feed => feed.group === group).length} 个订阅源`, icon: 'folder' })),
-      ...this.plugin.state.settings.followedPodcasts.filter(id => !this.plugin.state.sources.some(source => source.id === id && source.enabled !== false)).map(id => ({ id, name: this.plugin.state.settings.podcastNames[id] || id.replace(/^podscribe-/, ''), section: '乔木频道' as const, subtitle: '海外播客 · 源文稿', icon: 'mic' })),
-      ...this.plugin.state.sources.filter(source => source.enabled !== false && (source.category !== 'podcast' || this.plugin.state.settings.followedPodcasts.includes(source.id))).map(source => ({ id: source.id, name: source.name, section: '乔木频道' as const,
-        subtitle: ({ article: '文章', news: '新闻', podcast: '播客' } as Record<string, string>)[source.category || ''] || source.category || '乔木内容频道', monogram: source.name.trim().slice(0, 1) })),
+      ...readerChannelSources(this.plugin.state.sources).map(source => ({ id: source.id, name: source.name, section: '乔木频道' as const,
+        subtitle: ({ article: '文章', news: '新闻', podcast: '播客' } as Record<string, string>)[source.category || ''] || source.category || '乔木内容频道', monogram: source.name.trim().slice(0, 1), divider: qiaomuChannelDivider(source) })),
+      ...this.plugin.state.settings.followedPodcasts.filter(id => !featuredXiaoyuzhouPodcasts(this.plugin.state.sources).some(source => source.id === id)).map(id => {
+        const source = this.plugin.state.sources.find(item => item.id === id && item.enabled !== false);
+        return { id, name: this.plugin.state.settings.podcastNames[id] || source?.name || id.replace(/^podscribe-/, ''), section: '已订阅播客' as const,
+          subtitle: id.startsWith('podscribe-') ? '海外播客 · 源文稿' : '播客', icon: 'mic' };
+      }),
       ...feeds.map(feed => ({ id: feed.id, name: feed.name, section: '我的订阅源' as const,
         subtitle: `${feed.group ? `${feed.group} · ` : ''}${feedHost(feed.url)} · ${feed.entries.length} 篇`, monogram: feed.name.trim().slice(0, 1), group: feed.group })),
     ];
@@ -280,7 +284,7 @@ export class ReaderView extends ItemView {
   showSubscription(id: string) {
     if (this.plugin.state.subscriptions.some(feed => feed.id === id)) this.selectSource(id, false);
   }
-  showRemoteSource(id: string) { this.selectSource(id); }
+  showRemoteSource(id: string) { if (id !== 'levelingup') this.selectSource(id); }
   private pickChannel() {
     if (this.channelPicker) { this.channelPicker.close(); return; }
     this.channelPicker = new ChannelPicker(this.channelButton, this.channelChoices(), this.source, source => this.selectSource(source.id), () => { this.channelPicker = undefined; });
@@ -408,16 +412,17 @@ export class ReaderView extends ItemView {
     const state = this.plugin.state;
     const entries = this.filter === 'favorites' ? Object.values(state.favorites).map(b => b.entry) : this.entries;
     const query = this.query.trim().toLocaleLowerCase();
-    return uniqueWechatEntries(entries, this.bundle?.entry.id).filter(entry => (this.vaultScope() ? entry.origin === 'vault' && entry.sourceId === this.source : this.personalScope()
+    return uniqueRemoteEntries(entries, this.bundle?.entry.id).filter(entry => (this.vaultScope() ? entry.origin === 'vault' && entry.sourceId === this.source : this.personalScope()
       ? entry.origin === 'local' && (this.source === '@local' || this.selectedFeeds().some(feed => feed.id === entry.sourceId))
       : entry.origin !== 'local' && entry.origin !== 'vault' && (!this.source || entry.sourceId === this.source)) &&
-      (this.filter !== 'unread' || !this.relatedWechatIds(entry).some(id => state.readIds.includes(id)) || this.unreadSession.has(entry.id) || entry.id === this.bundle?.entry.id) &&
+      entry.sourceId !== 'levelingup' &&
+      (this.filter !== 'unread' || !this.relatedContentIds(entry).some(id => state.readIds.includes(id)) || this.unreadSession.has(entry.id) || entry.id === this.bundle?.entry.id) &&
       (!query || `${titleOf(entry)} ${entry.title} ${entry.summary || ''} ${this.sourceName(entry)}`.toLocaleLowerCase().includes(query)));
   }
-  private relatedWechatIds(entry: Entry): string[] {
-    if (!wechatArticleKey(entry.link)) return [entry.id];
+  private relatedContentIds(entry: Entry): string[] {
+    if (!wechatArticleKey(entry.link) && !xiaoyuzhouEpisodeKey(entry.link)) return [entry.id];
     return [...new Set([entry, ...this.entries, ...Object.values(this.plugin.state.favorites).map(bundle => bundle.entry)]
-      .filter(candidate => sameWechatArticle(entry, candidate)).map(candidate => candidate.id))];
+      .filter(candidate => sameRemoteContent(entry, candidate)).map(candidate => candidate.id))];
   }
   private sourceName(entry: Entry) { return this.plugin.state.subscriptions.find(feed => feed.id === entry.sourceId)?.name || entry.sourceName || this.plugin.state.settings.podcastNames[entry.sourceId] || this.plugin.state.sources.find(source => source.id === entry.sourceId)?.name || entry.sourceId; }
   private excerpt(entry: Entry): string {
@@ -457,7 +462,7 @@ export class ReaderView extends ItemView {
     const scroll = this.list.scrollTop; this.list.empty(); const entries = this.visibleEntries();
     if (!entries.length) this.list.createDiv({ cls: 'qrs-empty', text: this.loading ? '正在获取文章…' : this.filter === 'favorites' ? '收藏喜欢的文章，在这里慢慢读。' : this.personalScope() && !this.entries.length ? '还没有文章。点击 + 添加订阅，或点击刷新获取文章。' : '暂无匹配文章，试试其他频道或筛选。' });
     for (const entry of entries) {
-      const relatedIds = this.relatedWechatIds(entry);
+      const relatedIds = this.relatedContentIds(entry);
       const read = relatedIds.some(id => this.plugin.state.readIds.includes(id));
       const row = this.list.createEl('button', { cls: 'qrs-entry', attr: { 'data-entry-id': entry.id } });
       row.toggleClass('qrs-selected', this.bundle?.entry.id === entry.id);
@@ -475,7 +480,11 @@ export class ReaderView extends ItemView {
       const title = copy.createDiv('qrs-entry-title');
       title.createSpan({ cls: read ? 'qrs-read-dot' : 'qrs-unread-dot', attr: { 'aria-hidden': 'true' } });
       title.createSpan({ cls: 'qrs-visually-hidden', text: read ? '已读' : '未读' });
-      title.createEl('h3', { text: titleOf(entry) });
+      const bilingual = (entry.sourceId === 'podscribe-all-in-with-chamath-jason-sacks-friedberg' || entry.sourceId === 'podscribe-the-joe-rogan-experience') &&
+        !!entry.titleZh?.trim() && entry.titleZh.trim() !== entry.title.trim();
+      const heading = bilingual ? title.createDiv('qrs-bilingual-heading') : title;
+      heading.createEl('h3', { text: titleOf(entry) });
+      if (bilingual) heading.createDiv({ cls: 'qrs-original-title', text: entry.title });
       if (relatedIds.some(id => this.plugin.state.favorites[id])) setIcon(title.createSpan('qrs-bookmarked'), 'bookmark');
       const summary = this.excerpt(entry); if (summary) copy.createEl('p', { text: summary, cls: 'qrs-summary' });
       this.renderThumbnail(row, entry);
@@ -497,7 +506,7 @@ export class ReaderView extends ItemView {
     state.readIds = [...new Set([...state.readIds, entry.id])].slice(-5000); this.run(() => this.plugin.persist());
     this.mode = entry.origin === 'local' || entry.origin === 'vault' ? 'original'
       : podcastDefaultMode(entry, state.sources, state.settings.followedPodcasts)
-        ?? (entry.audio || youtubeEmbedUrl(entry.link) ? 'original' : state.settings.defaultMode);
+        ?? (entry.audio || youtubeEmbedUrl(entry.videoUrl || entry.link) ? 'original' : state.settings.defaultMode);
     this.message = ''; this.articleLoading = true; this.reader.setAttribute('aria-busy', 'true');
     this.contentEl.addClass('qrs-has-article'); this.renderReader(); this.reader.scrollTop = 0; this.lastReaderTop = 0; this.reader.focus({ preventScroll: true }); this.renderList();
     if (resume) { this.mode = resume.mode; this.pendingScroll = { listTop: resume.listTop, readerTop: resume.readerTop }; this.renderReader(); this.restoreOffsets(); }
@@ -623,15 +632,15 @@ export class ReaderView extends ItemView {
     const actions = toolbar.createDiv('qrs-actions');
     const appearance = this.addIconButton(actions, 'type', '阅读设置', () => { this.appearanceOpen = !this.appearanceOpen; this.renderReader(true); });
     appearance.setAttribute('aria-expanded', String(this.appearanceOpen)); appearance.setAttribute('aria-controls', this.appearanceId);
-    const favoriteId = this.relatedWechatIds(bundle.entry).find(id => this.plugin.state.favorites[id]);
+    const favoriteId = this.relatedContentIds(bundle.entry).find(id => this.plugin.state.favorites[id]);
     const favorite = !!favoriteId;
     const bookmark = this.addIconButton(actions, 'bookmark', favorite ? '取消收藏' : '收藏文章', () => this.run(async () => {
-      if (favoriteId) for (const id of this.relatedWechatIds(bundle.entry)) delete this.plugin.state.favorites[id];
+      if (favoriteId) for (const id of this.relatedContentIds(bundle.entry)) delete this.plugin.state.favorites[id];
       else this.plugin.state.favorites[bundle.entry.id] = bundle;
       await this.plugin.persist(); this.renderReader(true); this.renderList();
     }));
     bookmark.setAttribute('aria-pressed', String(favorite)); bookmark.toggleClass('is-bookmarked', favorite);
-    const relatedIds = this.relatedWechatIds(bundle.entry);
+    const relatedIds = this.relatedContentIds(bundle.entry);
     const read = relatedIds.some(id => this.plugin.state.readIds.includes(id));
     const readButton = this.addIconButton(actions, read ? 'circle-check' : 'circle', read ? '标为未读' : '标为已读', () => this.run(async () => {
       const ids = this.plugin.state.readIds.filter(id => !relatedIds.includes(id));
@@ -646,6 +655,8 @@ export class ReaderView extends ItemView {
         void this.app.workspace.openLinkText(bundle.entry.markdownPath!, '', true);
       }));
       if (link) menu.addItem(item => item.setTitle('在浏览器打开原文').setIcon('external-link').onClick(() => { this.contentEl.win.open(link, '_blank', 'noopener,noreferrer'); }));
+      const video = safeUrl(bundle.entry.videoUrl || '');
+      if (video && youtubeEmbedUrl(video)) menu.addItem(item => item.setTitle('打开本期视频').setIcon('video').onClick(() => { this.contentEl.win.open(video, '_blank', 'noopener,noreferrer'); }));
       menu.addItem(item => item.setTitle('重新加载文章').setIcon('refresh-cw').onClick(() => { void this.openArticle(bundle.entry); }));
       menu.addItem(item => item.setTitle('选择频道').setIcon('rss').onClick(() => this.pickChannel()));
       const rect = more.getBoundingClientRect(); menu.showAtPosition({ x: rect.left, y: rect.bottom });
@@ -654,6 +665,11 @@ export class ReaderView extends ItemView {
     if (previous) { this.reader.append(previous); this.reader.scrollTop = scroll; this.restoreOffsets(); return; }
     const article = this.reader.createEl('article', { cls: 'qrs-article' });
     const title = article.createEl('h1', { text: titleOf(bundle.entry) });
+    if ((bundle.entry.sourceId === 'podscribe-all-in-with-chamath-jason-sacks-friedberg' || bundle.entry.sourceId === 'podscribe-the-joe-rogan-experience') &&
+      bundle.entry.titleZh?.trim() && bundle.entry.titleZh.trim() !== bundle.entry.title.trim()) {
+      title.addClass('qrs-bilingual-title');
+      article.createDiv({ cls: 'qrs-article-original-title', text: bundle.entry.title });
+    }
     if (podcast) {
       const episode = bundle.entry;
       const date = episode.publishedTs ? new Date(episode.publishedTs).toLocaleDateString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric' }) : podcastRelativeDateLabel(episode.publishedRelative);
