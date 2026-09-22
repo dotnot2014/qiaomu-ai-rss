@@ -63,7 +63,7 @@
 .qrs-root.qrs-focus .qrs-sidebar,.qrs-root.qrs-focus .qrs-resize { display:none; }
 .qrs-article { max-width:var(--qrs-article-width); margin:0 auto; padding:30px clamp(24px,5%,60px) 90px; }
 .qrs-article h1 { font-size:clamp(24px,2.5cqw,32px); line-height:1.5; letter-spacing:-.025em; margin:0 0 26px; overflow-wrap:anywhere; font-weight:600; text-wrap:balance; }
-.qrs-article h1:has(+ .qrs-article-original-title) { margin-bottom:8px; }
+.qrs-article h1.qrs-bilingual-title { margin-bottom:8px; }
 .qrs-article-original-title { color:var(--text-muted); font-size:14px; line-height:1.5; margin-bottom:24px; overflow-wrap:anywhere; }
 .qrs-article .qrs-podcast-meta { margin:-16px 0 24px; color:var(--text-muted); font-size:12px; line-height:1.6; }
 .qrs-article .qrs-wechat-title { margin-bottom:8px; }

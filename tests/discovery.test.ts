@@ -63,6 +63,7 @@ describe('local discovery catalog', () => {
     const source = (id: string, category: string, siteUrl?: string, enabled = true) => ({ id, name: id, category, siteUrl, enabled });
     const xy = (id: string) => source(id, 'podcast', `https://www.xiaoyuzhoufm.com/podcast/${id}`);
     const sources = [source('news', 'news'), xy('zhangxiaojun'), xy('nexttoken'), xy('42zhangjing'), xy('latetalk'), xy('bannatie'),
+      source('wechat-bestblogs-2d790e38f8af54c5af77fa5fed687a7c66d34c22', 'article', 'https://mp.weixin.qq.com/'),
       source('lexfridman', 'podcast', 'https://lexfridman.com'), source('allin', 'podcast', 'https://youtube.com', false)];
     expect(readerChannelSources(sources).map(item => item.id)).toEqual(['news', 'zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie']);
     expect(readerChannelSources(sources).map(item => item.id)).not.toContain('lexfridman');

@@ -666,6 +666,7 @@ export class ReaderView extends ItemView {
     const title = article.createEl('h1', { text: titleOf(bundle.entry) });
     if ((bundle.entry.sourceId === 'podscribe-all-in-with-chamath-jason-sacks-friedberg' || bundle.entry.sourceId === 'podscribe-the-joe-rogan-experience') &&
       bundle.entry.titleZh?.trim() && bundle.entry.titleZh.trim() !== bundle.entry.title.trim()) {
+      title.addClass('qrs-bilingual-title');
       article.createDiv({ cls: 'qrs-article-original-title', text: bundle.entry.title });
     }
     if (podcast) {

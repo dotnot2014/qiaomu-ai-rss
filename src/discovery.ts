@@ -67,13 +67,14 @@ export function xiaoyuzhouPodcasts(sources: Source[]): Source[] {
   });
 }
 const featuredXiaoyuzhouIds = ['zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie'] as const;
+const hiddenQiaomuChannelIds = new Set(['wechat-bestblogs-2d790e38f8af54c5af77fa5fed687a7c66d34c22']);
 export function featuredXiaoyuzhouPodcasts(sources: Source[]): Source[] {
   const available = new Map(xiaoyuzhouPodcasts(sources).map(source => [source.id, source]));
   return featuredXiaoyuzhouIds.map(id => available.get(id)).filter((source): source is Source => !!source);
 }
 export function readerChannelSources(sources: Source[]): Source[] {
   const featuredIds = new Set(featuredXiaoyuzhouPodcasts(sources).map(source => source.id));
-  return sources.filter(source => source.enabled !== false &&
+  return sources.filter(source => source.enabled !== false && !hiddenQiaomuChannelIds.has(source.id) &&
     (source.category !== 'podcast' || featuredIds.has(source.id)));
 }
 const newsletterSourceIds = new Set([
