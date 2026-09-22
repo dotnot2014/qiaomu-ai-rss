@@ -14,10 +14,21 @@ describe('QMReader podcast integration', () => {
       'Lex Fridman Podcast', 'All-In Podcast', 'Acquired', 'Pivot', 'Invest Like the Best',
       'Masters of Scale', 'The Diary Of A CEO', 'The Prof G Pod', 'Freakonomics Radio', 'The Joe Rogan Experience',
     ]);
+    expect(podcastRecommendations.find(show => show.name === 'All-In Podcast')?.sourceId).toBe('podscribe-all-in-with-chamath-jason-sacks-friedberg');
+    expect(podcastRecommendations.find(show => show.name === 'The Joe Rogan Experience')?.sourceId).toBe('podscribe-the-joe-rogan-experience');
     expect(initialState({}).settings.followedPodcasts).toEqual([]);
     expect(initialState({ settings: { followedPodcasts: ['podscribe-acquired'] } }).settings.followedPodcasts).toEqual(['podscribe-acquired']);
     expect(initialState({ settings: { followedPodcasts: ['podscribe-new-show'], podcastNames: { 'podscribe-new-show': 'New Show' } } }).settings.podcastNames['podscribe-new-show']).toBe('New Show');
-    expect(initialState({ settings: { lastSource: 'allin' }, sources: [{ id: 'allin', name: 'All-In', category: 'podcast' }] }).settings.followedPodcasts).toEqual(['allin']);
+    expect(initialState({ settings: { lastSource: 'allin', followedPodcasts: ['allin', 'podscribe-all-in-with-chamath-jason-sacks-friedberg'], podcastNames: { allin: 'All-In Podcast' } }, sources: [{ id: 'allin', name: 'All-In', category: 'podcast' }] }).settings).toMatchObject({
+      lastSource: 'podscribe-all-in-with-chamath-jason-sacks-friedberg',
+      followedPodcasts: ['podscribe-all-in-with-chamath-jason-sacks-friedberg'],
+      podcastNames: { 'podscribe-all-in-with-chamath-jason-sacks-friedberg': 'All-In Podcast' },
+    });
+    expect(initialState({ settings: { followedPodcasts: ['joerogan'], lastSource: 'joerogan' } }).settings).toMatchObject({
+      lastSource: 'podscribe-the-joe-rogan-experience', followedPodcasts: ['podscribe-the-joe-rogan-experience'],
+    });
+    expect(initialState({ settings: { lastSource: 'allin' }, sources: [{ id: 'allin', name: 'All-In', category: 'podcast' }] }).settings.followedPodcasts)
+      .toEqual(['podscribe-all-in-with-chamath-jason-sacks-friedberg']);
   });
 
   it('opens registered podcasts in Qiaomu rewrite mode and direct-only shows in source mode', () => {
@@ -51,6 +62,32 @@ describe('QMReader podcast integration', () => {
     const { bundle, warnings } = await api.article(id);
     expect(bundle.entry.content).toBe('');
     expect(warnings.join('')).toContain('源文稿暂时无法取得');
+  });
+  it('recognizes All-In Shorts as clips without requesting a nonexistent episode transcript', async () => {
+    const requests: string[] = [];
+    const api = new RssApi('https://rss.qiaomu.ai', async url => {
+      requests.push(url);
+      if (url.endsWith('/rewrite')) return response({ rewrite: null });
+      if (url.endsWith('/translation')) return response({ translation: null });
+      if (url.endsWith('/podscribe-transcript')) throw new Error('Shorts must not request episode transcripts');
+      return response({ entry: { ...entry, sourceId: 'allin', link: 'https://www.youtube.com/shorts/yLnJpR8H2kY' } });
+    });
+    const { bundle, warnings } = await api.article(id);
+    expect(bundle.entry.content).toBe('');
+    expect(warnings.join('')).toContain('短视频片段');
+    expect(requests.some(url => url.endsWith('/podscribe-transcript'))).toBe(false);
+  });
+
+  it('describes an unmatched full video as unavailable rather than a temporary outage', async () => {
+    const api = new RssApi('https://rss.qiaomu.ai', async url => {
+      if (url.endsWith('/podscribe-transcript')) return { status: 404, text: '{"error":"没有唯一匹配"}' };
+      if (url.endsWith('/rewrite')) return response({ rewrite: null });
+      if (url.endsWith('/translation')) return response({ translation: null });
+      return response({ entry: { ...entry, sourceId: 'allin', link: 'https://www.youtube.com/watch?v=example' } });
+    });
+    const { warnings } = await api.article(id);
+    expect(warnings.join('')).toContain('尚未找到与这条视频唯一对应');
+    expect(warnings.join('')).not.toContain('稍后重新加载');
   });
   it('reads an unregistered recommended show directly without generating a rewrite', async () => {
     const api = new RssApi('https://rss.qiaomu.ai', async url => {

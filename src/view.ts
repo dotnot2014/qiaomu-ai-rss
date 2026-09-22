@@ -674,7 +674,7 @@ export class ReaderView extends ItemView {
       } else {
       const fragment = articleFragment(bundle, this.mode, article.ownerDocument, this.plugin.state.settings.remoteImages);
       if (fragment) { this.prepareImages(fragment); article.createDiv('qrs-prose').append(fragment); }
-      else article.createDiv({ cls: 'qrs-empty', text: this.articleLoading ? '正在获取正文…' : `${podcast ? this.mode === 'original' ? fullTranscript ? '源文稿' : '节目原文' : this.mode === 'rewrite' ? '乔木转写' : '中文翻译' : modeLabels[this.mode]}暂无正文。可以切换版本，或从“更多”中打开原文。` });
+      else if (!this.message || this.articleLoading) article.createDiv({ cls: 'qrs-empty', text: this.articleLoading ? '正在获取正文…' : `${podcast ? this.mode === 'original' ? fullTranscript ? '源文稿' : '节目原文' : this.mode === 'rewrite' ? '乔木转写' : '中文翻译' : modeLabels[this.mode]}暂无正文。可以切换版本，或从“更多”中打开原文。` });
       }
     } catch { article.createDiv({ cls: 'qrs-empty', text: '正文无法显示，请打开原文阅读。' }); }
     this.reader.scrollTop = scroll; this.restoreOffsets();

@@ -48,7 +48,7 @@ export const wechatFeeds: DiscoveryFeed[] = [
 // Mirrors the curated shows in QMReader's podcast discovery dialog.
 export const podcastRecommendations = [
   { name: 'Lex Fridman Podcast', nameZh: '莱克斯·弗里德曼播客', sourceId: 'lexfridman', slug: 'lex-fridman-podcast-artificial-intelligence-ai', description: '与科学家、技术人和各领域嘉宾长谈 AI、科学与人生。' },
-  { name: 'All-In Podcast', nameZh: 'All-In 商业科技播客', sourceId: 'allin', slug: 'all-in-with-chamath-jason-sacks-friedberg', description: '四位主持人讨论商业、科技、社会与公共议题。' },
+  { name: 'All-In Podcast', nameZh: 'All-In 商业科技播客', sourceId: 'podscribe-all-in-with-chamath-jason-sacks-friedberg', slug: 'all-in-with-chamath-jason-sacks-friedberg', description: '四位主持人讨论商业、科技、社会与公共议题。' },
   { name: 'Acquired', nameZh: '收购秘史', sourceId: 'podscribe-acquired', slug: 'acquired', description: '深挖知名公司的发展历史与商业战略。' },
   { name: 'Pivot', nameZh: '科技与商业转向', sourceId: 'podscribe-pivot', slug: 'pivot', description: 'Kara Swisher 与 Scott Galloway 评论科技、商业和政治新闻。' },
   { name: 'Invest Like the Best', nameZh: '向顶尖投资者学习', sourceId: 'podscribe-invest-like-the-best', slug: 'invest-like-the-best', description: 'Patrick O’Shaughnessy 与嘉宾探索投资、商业和技术。' },
@@ -56,7 +56,7 @@ export const podcastRecommendations = [
   { name: 'The Diary Of A CEO', nameZh: '一位 CEO 的日记', sourceId: 'podscribe-the-diary-of-a-ceo-with-steven-bartlett', slug: 'the-diary-of-a-ceo-with-steven-bartlett', description: 'Steven Bartlett 对话企业家、专家与创作者，聊他们的经历和思考。' },
   { name: 'The Prof G Pod', nameZh: 'G 教授播客', sourceId: 'podscribe-the-prof-g-pod-with-scott-galloway', slug: 'the-prof-g-pod-with-scott-galloway', description: 'Scott Galloway 分析商业与科技，并与嘉宾对谈。' },
   { name: 'Freakonomics Radio', nameZh: '魔鬼经济学电台', sourceId: 'podscribe-freakonomics-radio', slug: 'freakonomics-radio', description: '用经济学与采访探索日常现象背后的原因。' },
-  { name: 'The Joe Rogan Experience', nameZh: '乔·罗根体验', sourceId: 'joerogan', slug: 'the-joe-rogan-experience', description: 'Joe Rogan 与科学家、作者、艺人等嘉宾进行长篇对谈。' },
+  { name: 'The Joe Rogan Experience', nameZh: '乔·罗根体验', sourceId: 'podscribe-the-joe-rogan-experience', slug: 'the-joe-rogan-experience', description: 'Joe Rogan 与科学家、作者、艺人等嘉宾进行长篇对谈。' },
 ] as const;
 export const independentBlogs: DiscoveryFeed[] = blogCatalog.items
   .filter(blog => !BUILT_IN_FEED_URLS.has(blog.url))
