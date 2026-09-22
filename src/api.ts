@@ -1,8 +1,22 @@
 import { z } from 'zod';
-import { bundleSchema, entrySchema, pageSchema, rewriteSchema, serviceUrl, sourceSchema, translationSchema, type Bundle } from './model';
+import { bundleSchema, entrySchema, pageSchema, rewriteSchema, serviceUrl, sourceSchema, translationSchema, type Bundle, type Entry } from './model';
 const remoteEntrySchema = entrySchema.transform(entry => ({ ...entry, origin: 'qiaomu' as const, markdown: undefined, markdownPath: undefined }));
 export interface HttpResponse { status: number; text: string }
 export type Transport = (url: string) => Promise<HttpResponse>;
+const transcriptSchema = z.object({ transcript: z.string(), sourceUrl: z.string().optional() });
+const episodePageSchema = z.object({ episodes: z.array(z.object({ show_slug: z.string(), episode_slug: z.string(), title: z.string(), description: z.string().optional(), url: z.string().optional(), published_at: z.string().nullish(), published_relative: z.string().nullish(), views: z.number().int().nonnegative().nullish(), word_count: z.number().int().nonnegative().nullish(), duration_seconds: z.number().int().nonnegative().nullish() })), pagination: z.object({ next_page: z.number().nullable().optional(), has_next: z.boolean().optional() }).nullable().optional() });
+function exactPodcastDate(value: string | null | undefined): { published: string; publishedTs: number } | null {
+  if (!/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value || '')) return null;
+  const publishedTs = Date.parse(value || '');
+  return Number.isFinite(publishedTs) ? { published: new Date(publishedTs).toISOString(), publishedTs } : null;
+}
+const directTranscriptSchema = z.object({ transcript: z.object({ segments: z.array(z.object({ text: z.string() })) }), episode: z.object({ url: z.string().optional() }).optional() });
+function transcriptHtml(value: string, sourceUrl?: string): string {
+  const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const paragraphs = value.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const source = sourceUrl && /^https:\/\//.test(sourceUrl) ? `<p><a href="${escape(sourceUrl)}">源文稿页面</a></p>` : '';
+  return `${source}${paragraphs.map(line => `<p>${escape(line)}</p>`).join('')}`;
+}
 export class RssApi {
   private base: string;
   constructor(base: string, private transport: Transport) { this.base = serviceUrl(base); }
@@ -27,7 +41,35 @@ export class RssApi {
     const path = source ? `/api/sources/${encodeURIComponent(source)}/entries` : '/api/entries';
     return this.get(`${path}?${query}`, pageSchema.extend({ entries: z.array(remoteEntrySchema) }));
   }
-  async article(id: string): Promise<{ bundle: Bundle; warnings: string[] }> {
+  async podcastEpisodes(sourceId: string, cursor = '') {
+    const slug = sourceId.replace(/^podscribe-/, '');
+    if (!/^podscribe-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(sourceId)) throw new Error('播客标识无效。');
+    const page = Number(cursor || 1);
+    if (!Number.isInteger(page) || page < 1 || page > 1000) throw new Error('播客页码无效。');
+    const result = await this.get(`/api/podscribe/podcasts/${slug}/episodes?page=${page}`, episodePageSchema);
+    const entries: Entry[] = result.episodes.filter(episode => episode.show_slug === slug && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(episode.episode_slug)).map(episode => {
+      const date = exactPodcastDate(episode.published_at);
+      return {
+        id: `${sourceId}/${episode.episode_slug}`, sourceId, origin: 'qiaomu', podcastSlug: slug, episodeSlug: episode.episode_slug,
+        title: episode.title, summary: episode.description?.slice(0, 300) || '',
+        link: episode.url || `https://podcasts.happyscribe.com/${slug}/${episode.episode_slug}`,
+        published: date?.published, publishedTs: date?.publishedTs,
+        publishedRelative: episode.published_relative || (!date ? episode.published_at : null),
+        podcastViews: episode.views, podcastWordCount: episode.word_count, podcastDurationSeconds: episode.duration_seconds,
+      };
+    });
+    return { entries, hasMore: !!result.pagination?.has_next, nextCursor: result.pagination?.next_page ? String(result.pagination.next_page) : null };
+  }
+  async article(id: string, preview?: Entry): Promise<{ bundle: Bundle; warnings: string[] }> {
+    if (preview?.podcastSlug && preview.episodeSlug) {
+      const slug = preview.podcastSlug, episode = preview.episodeSlug;
+      if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(episode)) throw new Error('播客单集标识无效。');
+      const detail = await this.get(`/api/podscribe/episodes/${slug}/${episode}/transcript`, directTranscriptSchema);
+      const text = detail.transcript.segments.map(segment => segment.text.trim()).filter(Boolean).join('\n');
+      if (!text) throw new Error('这期播客暂无原文稿。');
+      const entry = { ...preview, content: transcriptHtml(text, detail.episode?.url || preview.link || undefined) };
+      return { bundle: bundleSchema.parse({ entry, rewrite: null, translation: null, fetchedAt: Date.now() }), warnings: [] };
+    }
     const path = `/api/entry/${encodeURIComponent(id)}`;
     const [detail, rewrite, translation] = await Promise.allSettled([
       this.get(path, z.object({ entry: remoteEntrySchema })),
@@ -38,7 +80,16 @@ export class RssApi {
     const warnings: string[] = [];
     if (rewrite.status === 'rejected') warnings.push('改写暂时无法加载');
     if (translation.status === 'rejected') warnings.push('翻译暂时无法加载');
-    const bundle = bundleSchema.parse({ entry: detail.value.entry,
+    const entry = detail.value.entry;
+    if (entry.sourceId === 'allin' || entry.sourceId === 'joerogan' || entry.sourceId.startsWith('podscribe-')) {
+      try {
+        const { transcript, sourceUrl } = await this.get(`${path}/podscribe-transcript`, transcriptSchema);
+        entry.content = transcriptHtml(transcript, sourceUrl);
+      } catch { entry.content = ''; warnings.push('源文稿暂时无法取得，可稍后重新加载'); }
+    } else if (entry.sourceId && /^lexfridman$/.test(entry.sourceId)) {
+      warnings.push('此节目目前只提供节目原文，完整源文稿尚未开放');
+    }
+    const bundle = bundleSchema.parse({ entry,
       rewrite: rewrite.status === 'fulfilled' ? rewrite.value.rewrite : detail.value.entry.rewrite ?? null,
       translation: translation.status === 'fulfilled' ? translation.value.translation : null, fetchedAt: Date.now() });
     return { bundle, warnings };

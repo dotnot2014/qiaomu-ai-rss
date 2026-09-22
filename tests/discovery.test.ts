@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { discoveryFeeds, filterDiscovery, independentBlogs } from '../src/discovery';
+import { discoveryFeeds, filterDiscovery, independentBlogs, podcastRecommendations, wechatFeeds } from '../src/discovery';
 import { initialState, safeUrl, withServiceOrigin } from '../src/model';
 
 describe('local discovery catalog', () => {
   it('bundles unique safe feed URLs and blog home pages', () => {
-    const entries = [...discoveryFeeds, ...independentBlogs];
+    const entries = [...discoveryFeeds, ...independentBlogs, ...wechatFeeds];
     expect(new Set(entries.map(feed => feed.id)).size).toBe(entries.length);
     for (const feed of entries) {
       expect(safeUrl(feed.url)).not.toBeNull();
@@ -26,6 +26,18 @@ describe('local discovery catalog', () => {
     expect(blogs.length).toBeGreaterThan(0);
     expect(blogs.every(feed => feed.tags?.includes('开源'))).toBe(true);
     expect(filterDiscovery('', '全部')).toHaveLength(discoveryFeeds.length);
+  });
+  it('offers eight opt-in WeChat feeds without adding them to featured defaults', () => {
+    expect(wechatFeeds).toHaveLength(8);
+    expect(filterDiscovery('', '全部')).toHaveLength(discoveryFeeds.length);
+    expect(filterDiscovery('', '全部', 'wechat')).toHaveLength(8);
+    expect(filterDiscovery('卡兹克', '全部', 'wechat').map(feed => feed.url))
+      .toEqual(['https://rss.t5t6.com/weread/MP_WXS_3223096120.xml']);
+  });
+  it('uses distinct introductions for curated accounts and shows', () => {
+    expect(new Set(wechatFeeds.map(feed => feed.description)).size).toBe(wechatFeeds.length);
+    expect(podcastRecommendations).toHaveLength(10);
+    expect(new Set(podcastRecommendations.map(show => show.description)).size).toBe(podcastRecommendations.length);
   });
   it('migrates settings and preserves existing feed URLs across instance and Qiaomu changes', () => {
     const state = initialState({ settings: { folder: 'Notes' }, subscriptions: [{ id: 'test', url: 'https://old.example/36kr/newsflashes', name: 'News' }] });

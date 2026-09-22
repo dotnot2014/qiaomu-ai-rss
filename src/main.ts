@@ -245,6 +245,29 @@ export default class QiaomuRssPlugin extends Plugin {
       if (leaf.view instanceof ReaderView) leaf.view.showSubscription(id);
     }
   }
+  async followPodcast(id: string, name?: string) {
+    const source = this.state.sources.find(item => item.id === id && item.category === 'podcast' && item.enabled !== false);
+    if (!source) {
+      if (!/^podscribe-[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) throw new Error('播客标识无效。');
+      const page = await this.api().podcastEpisodes(id);
+      if (!page.entries.length) throw new Error('这个播客暂没有可阅读的单集。');
+    }
+    if (!this.state.settings.followedPodcasts.includes(id)) this.state.settings.followedPodcasts.push(id);
+    if (name) this.state.settings.podcastNames[id] = name.slice(0, 200);
+    this.state.settings.lastSource = id;
+    await this.persist();
+    await this.openReader();
+    const view = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view;
+    if (view instanceof ReaderView) view.showRemoteSource(id);
+    this.refreshDiscovery();
+  }
+  async unfollowPodcast(id: string) {
+    this.state.settings.followedPodcasts = this.state.settings.followedPodcasts.filter(source => source !== id);
+    delete this.state.settings.podcastNames[id];
+    if (this.state.settings.lastSource === id) this.state.settings.lastSource = '';
+    await this.persist();
+    this.resetViews(); this.refreshDiscovery();
+  }
   async readSubscriptions() {
     await this.openReader();
     const view = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0]?.view;

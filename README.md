@@ -6,7 +6,7 @@
 
 在 Obsidian 中阅读 [乔木 RSS](https://rss.qiaomu.ai/) 精选文章，也可以添加自己的 RSS / Atom 订阅，把值得记住的文章链接加入今日日记。
 
-播客条目可在阅读页收听音频；YouTube 视频条目点击“播放视频”后，在阅读页加载播放器。媒体不可用时仍可打开原文。
+播客条目可在阅读页收听音频；YouTube 视频条目打开后直接显示嵌入播放器预览，点击播放器即可播放。媒体不可用时仍可打开原文。
 
 Read Qiaomu feeds and your own RSS / Atom subscriptions in a native Obsidian view, switch between original articles and available Chinese AI rewrites or translations, and add article links to your Daily Note.
 
@@ -68,8 +68,11 @@ GitHub 发布和官方目录审核是独立流程；每个版本的审核结果�
 
 - **精选订阅**：首批只保留潮流周刊、阮一峰、云风、和菜头、张鑫旭、小众软件、月光博客、Reorx 与 pseudoyu。标准是长期原创、持续更新、RSS 全文与鲜明的个人辨识度，宁缺毋滥；乔木博客直接作为内置频道提供。
 - **独立博客**：来自 [timqian/chinese-independent-blogs](https://github.com/timqian/chinese-independent-blogs) 的 1,342 个带 RSS 地址的博客，保留名称、主页与主题标签；支持搜索、主题筛选和分批浏览。
+- **微信公众号**：提供赛博禅心、数字生命卡兹克、新智元等 8 个由 `rss.t5t6.com/weread/` 生成的公开 RSS，逐个选择订阅，不会自动加入。部分文章只有摘要和原文链接；该服务若不可用，已有本地缓存仍可阅读。
+- **海外播客**：在“精选订阅”“独立博客”右侧新增入口，先展示 Qiaomu Reader 网站推荐的 10 个节目，也可搜索更多节目并订阅。插件读取节目单集和已有原文稿；有现成乔木转写时默认显示转写，没有时显示原文。订阅本身不会触发服务端自动转写，播客音频仍通过原站链接访问。
+- **微信公众号**：同样在探索页新增入口，读取当前配置的 Qiaomu Reader 服务支持的完整公开 RSS 目录并支持搜索；目录不可用时仍可使用内置精选源。
 - 点击“订阅”会读取并验证源，按主题加入“我的订阅”，并让阅读器记住这个新频道；切回阅读器即可看到文章。已经添加的源显示“已订阅”，点击“开始阅读”可查看全部个人订阅。
-- 目录离线内置，不会在浏览时请求所有网站。独立博客是社区目录快照，部分旧地址可能失效；添加失败时显示原因和重试入口。
+- 精选、播客推荐与博客目录离线内置；进入公众号目录或搜索海外播客时会请求在线目录。播客单集和原文稿从 Qiaomu Reader 服务读取，优先显示该单集已有的乔木转写。添加失败时显示原因和重试入口。
 
 [目录来源、授权与可用性记录](docs/DISCOVERY.md) · [精选目录截图](docs/images/listing-2026-09/explore.png)
 
@@ -98,14 +101,14 @@ GitHub 发布和官方目录审核是独立流程；每个版本的审核结果�
 
 ## 隐私与网络 / Privacy and network use
 
-- **Discovery is local.** Catalog search/filtering sends no network requests. Clicking Subscribe fetches the chosen feed.
+- **Discovery.** Featured feeds, ten podcast recommendations, and blog search are local. Opening or searching the WeChat catalog and searching podcasts send requests to the configured Qiaomu Reader service. Podcast episodes and available source transcripts are read from that service; subscribing does not initiate AI rewriting. Clicking Subscribe on a personal RSS feed fetches the chosen feed.
 
 - **Network required for new content.** Opening the reader, selecting a channel/article or refreshing sends anonymous HTTPS GET requests to `https://rss.qiaomu.ai`, or the compatible HTTPS origin you explicitly configure. The service receives normal request metadata such as IP address, request time and requested article/channel IDs. See [Privacy](docs/PRIVACY.md).
 - **Personal feed requests go directly to the URLs you add or import.** These HTTP(S) hosts receive normal request metadata; feed addresses, groups and article bodies are not uploaded to Qiaomu. OPML import itself does not fetch content. Feed URLs may contain private access tokens and are stored unencrypted in plugin data and OPML exports; keep those exports private.
 - **No account, API key or payment is required for the public reading features in this release.** This plugin only reads existing published AI assets. It does not request new AI generation or send data to model providers. Future service availability is controlled by the service operator.
 - **Article images are enabled by default.** The plugin downloads article images and list thumbnails from their hosts and displays local Blob URLs. Images are cached within this plugin’s vault configuration directory (up to 64 MB / 100 files, 8 MB per image). Image hosts receive normal image requests; cached images can be read offline. You can disable images in settings. Clicking article links opens the linked website in your browser.
-- **Media playback is user-initiated.** Podcast audio is fetched from the media URL supplied by the selected entry when played. Clicking “播放视频” loads a sandboxed YouTube embed; YouTube may receive normal request metadata and apply its own privacy policy. Merely opening an article does not create a YouTube iframe. See [Privacy](docs/PRIVACY.md).
-- **No client-side analytics, ads, automatic updates or installation of dependencies.** The plugin does not upload vault notes or send local search queries, favorites or read markers to the service. There is no plugin-specific analytics endpoint. The service may retain ordinary HTTP access/error logs; this plugin does not load the website's analytics scripts. The optional YouTube player runs third-party code inside its restricted iframe only after a click.
+- **Media playback is user-initiated.** Podcast audio is fetched from the media URL supplied by the selected entry when played. Opening a YouTube article loads a sandboxed YouTube player preview without autoplay; YouTube may receive normal request metadata and apply its own privacy policy before playback. See [Privacy](docs/PRIVACY.md).
+- **No client-side analytics, ads, automatic updates or installation of dependencies.** The plugin does not upload vault notes or send local search queries, favorites or read markers to the service. There is no plugin-specific analytics endpoint. The service may retain ordinary HTTP access/error logs; this plugin does not load the website's analytics scripts. Opening a YouTube article loads third-party code inside its restricted iframe.
 - **Vault-local storage only.** Settings, personal subscriptions with cached entries, recent Qiaomu entries, up to 40 recently opened articles, favorites, local images and up to 5,000 read IDs are saved using Obsidian plugin storage. Captured article snapshots are retained for internal return links even after cache eviction; deleting plugin data breaks those links. Favorites remain until removed; large libraries can increase the size of `data.json`. If you sync your vault's configuration, your sync provider may also sync these files. The note action appends the article title with an internal reader link and optionally selected text to today's Daily Note in the vault. No files outside the vault are read or written.
 - Switching service origins clears the previous Qiaomu service's local reader data and favorites; personal subscriptions and personal favorites remain. Back up your plugin data before switching.
 

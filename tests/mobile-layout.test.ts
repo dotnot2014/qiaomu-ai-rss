@@ -10,4 +10,12 @@ describe('phone reader layout', () => {
     expect(css).toMatch(/\.is-phone \.qrs-sidebar-toolbar \.qrs-channel\s*{[^}]*min-height:44px;/);
     expect(css).toMatch(/\.is-phone \.qrs-sidebar-toolbar \.qrs-icon\s*{[^}]*width:44px; height:44px;/);
   });
+  it('places selection actions above the mobile bottom controls instead of beside the native text menu', () => {
+    const css = readFileSync(fileURLToPath(new URL('../styles.css', import.meta.url)), 'utf8');
+    expect(css).toMatch(/\.is-mobile \.qrs-selection-popup\s*{[^}]*top:auto;[^}]*bottom:calc\(68px \+ var\(--safe-area-inset-bottom/);
+  });
+  it('limits Explore card introductions to two lines', () => {
+    const css = readFileSync(fileURLToPath(new URL('../styles.css', import.meta.url)), 'utf8');
+    expect(css).toMatch(/\.qrs-discovery-card \.qrs-discovery-description\s*{[^}]*-webkit-line-clamp:2;/);
+  });
 });

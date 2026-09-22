@@ -1,4 +1,4 @@
-import { setIcon, setTooltip } from 'obsidian';
+import { setIcon } from 'obsidian';
 import { markdownText } from './daily-note';
 export interface CaptureAction { label: string; icon: string; disabled?: boolean; save: (text: string) => Promise<void> }
 /** A selection action, shown only after an explicit text selection. */
@@ -47,8 +47,9 @@ export class SelectionCapture {
     const viewport = this.doc.documentElement;
     const popup = this.doc.body.createDiv({ cls: 'qrs-selection-popup' }); this.popup = popup;
     for (const action of save) {
-      const button = popup.createEl('button', { attr: { 'aria-label': action.label } });
-      setIcon(button, action.icon); setTooltip(button, action.label);
+      const button = popup.createEl('button');
+      setIcon(button, action.icon);
+      button.createSpan({ cls: 'qrs-visually-hidden', text: action.label });
       button.disabled = !!action.disabled;
       button.onpointerdown = event => event.preventDefault();
       button.onclick = () => { this.clear(); void action.save(text); };
