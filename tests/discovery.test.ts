@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { discoveryFeeds, filterDiscovery, independentBlogs, podcastRecommendations, wechatFeeds } from '../src/discovery';
+import { discoveryFeeds, filterDiscovery, independentBlogs, podcastRecommendations, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
 import { initialState, safeUrl, withServiceOrigin } from '../src/model';
 
 describe('local discovery catalog', () => {
@@ -38,6 +38,14 @@ describe('local discovery catalog', () => {
     expect(new Set(wechatFeeds.map(feed => feed.description)).size).toBe(wechatFeeds.length);
     expect(podcastRecommendations).toHaveLength(10);
     expect(new Set(podcastRecommendations.map(show => show.description)).size).toBe(podcastRecommendations.length);
+  });
+  it('offers enabled Xiaoyuzhou sources returned by the Reader service', () => {
+    const sources = initialState({ sources: [
+      { id: 'latetalk', name: '晚点聊 LateTalk', category: 'podcast', siteUrl: 'https://www.xiaoyuzhoufm.com/podcast/61933ace1b4320461e91fd55', enabled: true },
+      { id: 'disabled', name: '停用节目', category: 'podcast', siteUrl: 'https://www.xiaoyuzhoufm.com/podcast/123', enabled: false },
+      { id: 'other', name: '其他节目', category: 'podcast', siteUrl: 'https://example.com/podcast/123', enabled: true },
+    ] }).sources;
+    expect(xiaoyuzhouPodcasts(sources).map(source => source.id)).toEqual(['latetalk']);
   });
   it('migrates settings and preserves existing feed URLs across instance and Qiaomu changes', () => {
     const state = initialState({ settings: { folder: 'Notes' }, subscriptions: [{ id: 'test', url: 'https://old.example/36kr/newsflashes', name: 'News' }] });

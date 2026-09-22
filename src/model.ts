@@ -22,7 +22,7 @@ export const entrySchema = z.object({
   rewrite: rewriteSchema.nullish(),
 });
 export type Entry = z.infer<typeof entrySchema>;
-export const sourceSchema = z.object({ id: z.string(), name: z.string(), category: optionalText, enabled: z.boolean().optional() });
+export const sourceSchema = z.object({ id: z.string(), name: z.string(), category: optionalText, siteUrl: optionalText, enabled: z.boolean().optional() });
 export type Source = z.infer<typeof sourceSchema>;
 export function podcastDefaultMode(entry: Entry, sources: Source[], followedPodcasts: string[]): Mode | null {
   if (entry.podcastSlug) return 'original';

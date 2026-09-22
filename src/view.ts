@@ -606,7 +606,7 @@ export class ReaderView extends ItemView {
     const select = toolbar.createEl('select', { cls: 'qrs-mode-select', attr: { id: modeId, 'data-qrs-field': '阅读版本' } });
     const podcast = !!bundle.entry.podcastSlug || this.plugin.state.sources.some(source => source.id === bundle.entry.sourceId && source.category === 'podcast');
     const fullTranscript = !!bundle.entry.podcastSlug || ['allin', 'joerogan'].includes(bundle.entry.sourceId) || bundle.entry.sourceId.startsWith('podscribe-');
-    for (const [mode, label] of Object.entries(modeLabels).filter(([mode]) => (bundle.entry.origin !== 'local' && bundle.entry.origin !== 'vault' && !bundle.entry.podcastSlug) || mode === 'original')) select.createEl('option', { value: mode, text: podcast ? mode === 'original' ? fullTranscript ? '源文稿' : '节目原文' : mode === 'rewrite' ? '乔木转写' : label : label });
+    for (const [mode, label] of Object.entries(modeLabels).filter(([mode]) => (bundle.entry.origin !== 'local' && bundle.entry.origin !== 'vault' && !bundle.entry.podcastSlug) || mode === 'original')) select.createEl('option', { value: mode, text: podcast ? mode === 'original' ? fullTranscript ? '源文稿' : '节目原文' : mode === 'rewrite' ? '乔木改写' : label : label });
     select.disabled = bundle.entry.origin === 'local' || bundle.entry.origin === 'vault' || !!bundle.entry.podcastSlug;
     select.value = this.mode; select.onchange = () => { this.mode = modeSchema.parse(select.value); this.renderReader(); };
     const nav = toolbar.createDiv('qrs-reader-nav');
@@ -674,7 +674,7 @@ export class ReaderView extends ItemView {
       } else {
       const fragment = articleFragment(bundle, this.mode, article.ownerDocument, this.plugin.state.settings.remoteImages);
       if (fragment) { this.prepareImages(fragment); article.createDiv('qrs-prose').append(fragment); }
-      else if (!this.message || this.articleLoading) article.createDiv({ cls: 'qrs-empty', text: this.articleLoading ? '正在获取正文…' : `${podcast ? this.mode === 'original' ? fullTranscript ? '源文稿' : '节目原文' : this.mode === 'rewrite' ? '乔木转写' : '中文翻译' : modeLabels[this.mode]}暂无正文。可以切换版本，或从“更多”中打开原文。` });
+      else if (!this.message || this.articleLoading) article.createDiv({ cls: 'qrs-empty', text: this.articleLoading ? '正在获取正文…' : `${podcast ? this.mode === 'original' ? fullTranscript ? '源文稿' : '节目原文' : this.mode === 'rewrite' ? '乔木改写' : '中文翻译' : modeLabels[this.mode]}暂无正文。可以切换版本，或从“更多”中打开原文。` });
       }
     } catch { article.createDiv({ cls: 'qrs-empty', text: '正文无法显示，请打开原文阅读。' }); }
     this.reader.scrollTop = scroll; this.restoreOffsets();
