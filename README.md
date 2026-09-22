@@ -129,7 +129,7 @@ node scripts/discovery-layout.mjs
 
 `npm run dev` 监听 TypeScript 变化。构建产物为根目录 `main.js`，将其与 `manifest.json`、`styles.css` 安装到专用测试库即可。
 
-运行时仅使用 Obsidian 和 Web API，不依赖 Node.js 或 Electron。`isDesktopOnly: false` 表示代码兼容移动环境；移动真机测试状态见 [验收记录](docs/VALIDATION.md)。
+阅读功能使用 Obsidian 和 Web API；桌面端的 Markdown 与 PDF 导出会调用 Obsidian 内的 Electron 和 Node.js 文件接口，以保存到用户选择的位置。移动端不会显示导出操作。`isDesktopOnly: false` 表示阅读功能兼容移动环境；移动真机测试状态见 [验收记录](docs/VALIDATION.md)。
 
 - [API 契约](docs/API.md)
 - [官方目录发布记录](docs/SUBMISSION.md)
@@ -147,7 +147,7 @@ The project as a whole is licensed under GNU GPL version 3 only, with no warrant
 
 此前 MIT 版本声明保留在 [LICENSES/previous-MIT.txt](LICENSES/previous-MIT.txt)。
 
-Bundled dependencies retain their licenses: DOMPurify (Apache-2.0 OR MPL-2.0), marked (MIT), and Zod (MIT). See [third-party notices](THIRD_PARTY_NOTICES.md).
+Bundled dependencies retain their licenses: DOMPurify (Apache-2.0 OR MPL-2.0), marked (MIT), Zod (MIT), Turndown (MIT), and Turndown GFM (MIT). See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 [X / 向阳乔木](https://x.com/vista8) · [GitHub](https://github.com/joeseesun)
 
