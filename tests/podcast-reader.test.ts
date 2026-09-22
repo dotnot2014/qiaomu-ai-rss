@@ -115,16 +115,28 @@ describe('QMReader podcast integration', () => {
       if (url.includes('/episodes?')) return response({ episodes: [{ show_slug: 'all-in-with-chamath-jason-sacks-friedberg', episode_slug: 'adam', title: 'Adam Foroughi', published_at: '2026-09-22T10:00:00Z' }], pagination: { has_next: false } });
       if (url.endsWith('/transcript')) return response({ transcript: { segments: [{ text: 'Full source transcript' }] } });
       if (url.includes('/sources/allin/entries')) return response({ entries: [
-        { id: 'video', sourceId: 'allin', title: 'Adam Foroughi', link: video, publishedTs: Date.parse('2026-09-22T10:00:00Z') },
+        { id: 'video', sourceId: 'allin', title: 'Adam Foroughi', titleZh: '亚当·福鲁吉', link: video, publishedTs: Date.parse('2026-09-22T10:00:00Z') },
         { id: 'short', sourceId: 'allin', title: 'Short clip', link: 'https://www.youtube.com/shorts/yLnJpR8H2kY' },
       ] });
       throw new Error('Unexpected request');
     });
     const page = await api.podcastEpisodes('podscribe-all-in-with-chamath-jason-sacks-friedberg');
+    expect(page.entries[0].titleZh).toBe('亚当·福鲁吉');
     const { bundle } = await api.article(page.entries[0].id, page.entries[0]);
     expect(bundle.entry.videoUrl).toBe(video);
     expect(bundle.entry.content).toContain('Full source transcript');
+    expect(bundle.entry.titleZh).toBe('亚当·福鲁吉');
     expect(bundle.rewrite).toBeNull();
+  });
+  it('shows a Chinese episode heading alongside the English Joe Rogan title', async () => {
+    const api = new RssApi('https://rss.qiaomu.ai', async url => {
+      if (url.includes('/episodes?')) return response({ episodes: [{ show_slug: 'the-joe-rogan-experience', episode_slug: 'ron-white', title: '#2555 - Ron White' }], pagination: { has_next: false } });
+      if (url.includes('/sources/joerogan/entries')) return response({ entries: [] });
+      throw new Error('Unexpected request');
+    });
+    const page = await api.podcastEpisodes('podscribe-the-joe-rogan-experience');
+    expect(page.entries[0].titleZh).toBe('乔·罗根体验 第 2555 期：Ron White');
+    expect(page.entries[0].title).toBe('#2555 - Ron White');
   });
   it('does not link ambiguous or differently dated YouTube episodes', async () => {
     const preview = { id: 'podscribe-the-joe-rogan-experience/ron', sourceId: 'podscribe-the-joe-rogan-experience', title: '#2555 - Ron White', podcastSlug: 'the-joe-rogan-experience', episodeSlug: 'ron', publishedTs: Date.parse('2026-09-22T10:00:00Z') };

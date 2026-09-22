@@ -262,9 +262,13 @@ export class ReaderView extends ItemView {
       ...this.plugin.state.settings.markdownFolders.map(folder => ({ id: vaultSourceId(folder), name: folder === '/' ? '整个库' : folder.split('/').at(-1)!, section: '库内文件夹' as const, subtitle: folder, icon: folder.endsWith('.md') ? 'file-text' : 'folder-open' })),
       ...groups.map(group => ({ id: `@group:${group}`, name: group, section: '订阅分组' as const,
         subtitle: `${feeds.filter(feed => feed.group === group).length} 个订阅源`, icon: 'folder' })),
-      ...this.plugin.state.settings.followedPodcasts.filter(id => !this.plugin.state.sources.some(source => source.id === id && source.enabled !== false)).map(id => ({ id, name: this.plugin.state.settings.podcastNames[id] || id.replace(/^podscribe-/, ''), section: '乔木频道' as const, subtitle: '海外播客 · 源文稿', icon: 'mic' })),
-      ...readerChannelSources(this.plugin.state.sources, this.plugin.state.settings.followedPodcasts).map(source => ({ id: source.id, name: source.name, section: '乔木频道' as const,
+      ...readerChannelSources(this.plugin.state.sources).map(source => ({ id: source.id, name: source.name, section: '乔木频道' as const,
         subtitle: ({ article: '文章', news: '新闻', podcast: '播客' } as Record<string, string>)[source.category || ''] || source.category || '乔木内容频道', monogram: source.name.trim().slice(0, 1) })),
+      ...this.plugin.state.settings.followedPodcasts.filter(id => !featuredXiaoyuzhouPodcasts(this.plugin.state.sources).some(source => source.id === id)).map(id => {
+        const source = this.plugin.state.sources.find(item => item.id === id && item.enabled !== false);
+        return { id, name: this.plugin.state.settings.podcastNames[id] || source?.name || id.replace(/^podscribe-/, ''), section: '已订阅播客' as const,
+          subtitle: id.startsWith('podscribe-') ? '海外播客 · 源文稿' : '播客', icon: 'mic' };
+      }),
       ...feeds.map(feed => ({ id: feed.id, name: feed.name, section: '我的订阅源' as const,
         subtitle: `${feed.group ? `${feed.group} · ` : ''}${feedHost(feed.url)} · ${feed.entries.length} 篇`, monogram: feed.name.trim().slice(0, 1), group: feed.group })),
     ];
@@ -475,7 +479,11 @@ export class ReaderView extends ItemView {
       const title = copy.createDiv('qrs-entry-title');
       title.createSpan({ cls: read ? 'qrs-read-dot' : 'qrs-unread-dot', attr: { 'aria-hidden': 'true' } });
       title.createSpan({ cls: 'qrs-visually-hidden', text: read ? '已读' : '未读' });
-      title.createEl('h3', { text: titleOf(entry) });
+      const bilingual = (entry.sourceId === 'podscribe-all-in-with-chamath-jason-sacks-friedberg' || entry.sourceId === 'podscribe-the-joe-rogan-experience') &&
+        !!entry.titleZh?.trim() && entry.titleZh.trim() !== entry.title.trim();
+      const heading = bilingual ? title.createDiv('qrs-bilingual-heading') : title;
+      heading.createEl('h3', { text: titleOf(entry) });
+      if (bilingual) heading.createDiv({ cls: 'qrs-original-title', text: entry.title });
       if (relatedIds.some(id => this.plugin.state.favorites[id])) setIcon(title.createSpan('qrs-bookmarked'), 'bookmark');
       const summary = this.excerpt(entry); if (summary) copy.createEl('p', { text: summary, cls: 'qrs-summary' });
       this.renderThumbnail(row, entry);
@@ -656,6 +664,10 @@ export class ReaderView extends ItemView {
     if (previous) { this.reader.append(previous); this.reader.scrollTop = scroll; this.restoreOffsets(); return; }
     const article = this.reader.createEl('article', { cls: 'qrs-article' });
     const title = article.createEl('h1', { text: titleOf(bundle.entry) });
+    if ((bundle.entry.sourceId === 'podscribe-all-in-with-chamath-jason-sacks-friedberg' || bundle.entry.sourceId === 'podscribe-the-joe-rogan-experience') &&
+      bundle.entry.titleZh?.trim() && bundle.entry.titleZh.trim() !== bundle.entry.title.trim()) {
+      article.createDiv({ cls: 'qrs-article-original-title', text: bundle.entry.title });
+    }
     if (podcast) {
       const episode = bundle.entry;
       const date = episode.publishedTs ? new Date(episode.publishedTs).toLocaleDateString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric' }) : podcastRelativeDateLabel(episode.publishedRelative);

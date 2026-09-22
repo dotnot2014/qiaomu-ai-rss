@@ -64,9 +64,9 @@ describe('local discovery catalog', () => {
     const xy = (id: string) => source(id, 'podcast', `https://www.xiaoyuzhoufm.com/podcast/${id}`);
     const sources = [source('news', 'news'), xy('zhangxiaojun'), xy('nexttoken'), xy('42zhangjing'), xy('latetalk'), xy('bannatie'),
       source('lexfridman', 'podcast', 'https://lexfridman.com'), source('allin', 'podcast', 'https://youtube.com', false)];
-    expect(readerChannelSources(sources, []).map(item => item.id)).toEqual(['news', 'zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie']);
-    expect(readerChannelSources(sources, ['lexfridman', 'allin']).map(item => item.id)).toContain('lexfridman');
-    expect(readerChannelSources(sources, ['lexfridman', 'allin']).map(item => item.id)).not.toContain('allin');
+    expect(readerChannelSources(sources).map(item => item.id)).toEqual(['news', 'zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie']);
+    expect(readerChannelSources(sources).map(item => item.id)).not.toContain('lexfridman');
+    expect(readerChannelSources(sources).map(item => item.id)).not.toContain('allin');
   });
   it('migrates settings and preserves existing feed URLs across instance and Qiaomu changes', () => {
     const state = initialState({ settings: { folder: 'Notes' }, subscriptions: [{ id: 'test', url: 'https://old.example/36kr/newsflashes', name: 'News' }] });

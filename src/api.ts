@@ -30,7 +30,7 @@ function episodeVideoInDescription(description: string | undefined): string | nu
   const url = match?.[1] || null;
   return youtubeEmbedUrl(url) ? url : null;
 }
-function matchingVideo(episode: Entry, candidates: Entry[], sourceId: string): string | null {
+function matchingVideoEntry(episode: Entry, candidates: Entry[], sourceId: string): Entry | null {
   const title = normalizedPodcastTitle(episode.title);
   const matches = candidates.filter(candidate => {
     const candidateTitle = sourceId === 'joerogan' ? candidate.title.replace(/^Joe Rogan Experience\s*/i, '') : candidate.title;
@@ -38,7 +38,11 @@ function matchingVideo(episode: Entry, candidates: Entry[], sourceId: string): s
       normalizedPodcastTitle(candidateTitle) === title &&
       (!episode.publishedTs || !candidate.publishedTs || Math.abs(episode.publishedTs - candidate.publishedTs) <= 7 * 86400000);
   });
-  return matches.length === 1 ? matches[0].link || null : null;
+  return matches.length === 1 ? matches[0] : null;
+}
+function chineseJoeRoganTitle(title: string): string | null {
+  const match = /^#(\d+)\s*[-–—]\s*(.+)$/.exec(title);
+  return match ? `乔·罗根体验 第 ${match[1]} 期：${match[2]}` : null;
 }
 export class RssApi {
   private base: string;
@@ -75,6 +79,7 @@ export class RssApi {
       return {
         id: `${sourceId}/${episode.episode_slug}`, sourceId, origin: 'qiaomu', podcastSlug: slug, episodeSlug: episode.episode_slug,
         title: episode.title, summary: episode.description?.slice(0, 300) || '',
+        titleZh: slug === 'the-joe-rogan-experience' ? chineseJoeRoganTitle(episode.title) : null,
         link: episode.url || `https://podcasts.happyscribe.com/${slug}/${episode.episode_slug}`,
         videoUrl: episodeVideoInDescription(episode.description),
         published: date?.published, publishedTs: date?.publishedTs,
@@ -82,6 +87,17 @@ export class RssApi {
         podcastViews: episode.views, podcastWordCount: episode.word_count, podcastDurationSeconds: episode.duration_seconds,
       };
     });
+    const videoSource = slug === 'all-in-with-chamath-jason-sacks-friedberg' ? 'allin' : slug === 'the-joe-rogan-experience' ? 'joerogan' : null;
+    if (videoSource) {
+      try {
+        const videos = (await this.entries(videoSource, '', 100)).entries;
+        for (const entry of entries) {
+          const match = matchingVideoEntry(entry, videos, videoSource);
+          if (match?.titleZh?.trim()) entry.titleZh = match.titleZh;
+          if (match?.link) entry.videoUrl = match.link;
+        }
+      } catch { /* A missing video channel must not hide the podcast list. */ }
+    }
     return { entries, hasMore: !!result.pagination?.has_next, nextCursor: result.pagination?.next_page ? String(result.pagination.next_page) : null };
   }
   async article(id: string, preview?: Entry): Promise<{ bundle: Bundle; warnings: string[] }> {
@@ -96,7 +112,9 @@ export class RssApi {
       if (videoSource) {
         try {
           const page = await this.entries(videoSource, '', 100);
-          entry.videoUrl = matchingVideo(entry, page.entries, videoSource) || entry.videoUrl || null;
+          const match = matchingVideoEntry(entry, page.entries, videoSource);
+          entry.videoUrl = match?.link || entry.videoUrl || null;
+          if (match?.titleZh?.trim()) entry.titleZh = match.titleZh;
         } catch { /* A video is optional; the source transcript remains readable. */ }
       }
       return { bundle: bundleSchema.parse({ entry, rewrite: null, translation: null, fetchedAt: Date.now() }), warnings: [] };
