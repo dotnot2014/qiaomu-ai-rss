@@ -6,6 +6,7 @@ import { folderPath, initialState, modeLabels, modeSchema, readingFontSchema, su
 import { articleText } from './content';
 import { requestSummary, type SummaryTransport } from './summary';
 import { synthesizeSpeech, ttsVoices } from './tts';
+import { createEdgeSocket } from './edge-socket';
 import { cleanCaptureMarkers, repairArticleLinks, appendDailyNoteLink, dailyNotePath, readDailyNoteSettings, renderDailyNoteTemplate } from './daily-note';
 import { ReaderView, VIEW_TYPE } from './view';
 import { vaultSourceId, VaultFolderPicker, VaultSources } from './vault-source';
@@ -121,7 +122,7 @@ export default class QiaomuRssPlugin extends Plugin {
   }
   async testSpeech(): Promise<void> {
     const settings = this.state.settings;
-    const blob = await synthesizeSpeech({ text: '这是乔木 RSS 的语音试听，用来确认音色和语速。', voice: settings.ttsVoice, rate: settings.ttsRate });
+    const blob = await synthesizeSpeech({ text: '这是乔木 RSS 的语音试听，用来确认音色和语速。', voice: settings.ttsVoice, rate: settings.ttsRate, createSocket: createEdgeSocket });
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     const release = () => URL.revokeObjectURL(url);

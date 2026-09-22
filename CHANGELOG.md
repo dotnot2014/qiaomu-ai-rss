@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.20.1 — 2026-09-15
+
+- Fix speech playback failing with "无法连接 Edge 语音服务". The service returns HTTP 403 unless the request carries a real Edge User-Agent, and a page-level WebSocket cannot override its browser-controlled User-Agent, so the in-page socket could never connect. The socket now opens from Node through `ws` (bundled, aliased to its Node entry because a browser build resolves to a throwing stub) and is gated by `Platform.isDesktop` so mobile never loads Node built-ins.
+- Verified end to end with the exact request headers: 101 upgrade, valid 24 kHz MP3 audio.
+
 ## 0.20.0 — 2026-09-15
 
 - Rebase the AI summary and speech features onto upstream 0.19.8, keeping the podcast, source-transcript, WeChat and Markdown/PDF export work intact.

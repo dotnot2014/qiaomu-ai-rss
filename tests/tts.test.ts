@@ -2,10 +2,11 @@
 import { createHash, randomUUID, webcrypto } from 'node:crypto';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import {
-  clearAudioCache, edgeSsml, parseEdgeMessage, secMsGec, sanitizeSpeechText,
+  clearAudioCache, EDGE_CHROMIUM_VERSION, edgeSsml, parseEdgeMessage, secMsGec, sanitizeSpeechText,
   splitForSpeech, summarySpeechText, synthesizeCached, synthesizeSpeech,
   type SpeechSocket,
 } from '../src/tts';
+import { edgeSocketHeaders } from '../src/edge-socket';
 import type { SummaryRecord } from '../src/model';
 
 beforeAll(() => {
@@ -151,23 +152,36 @@ describe('Edge speech synthesis', () => {
 describe('Edge voice reuse', () => {
   it('reuses synthesized audio for the same text, voice and rate', async () => {
     clearAudioCache();
+    const socket = () => new FakeSocket();
     const synthesize = vi.fn(async () => new Blob(['audio'], { type: 'audio/mpeg' }));
-    await synthesizeCached('缓存测试。', 'zh-CN-XiaoxiaoNeural', 0, synthesize);
-    await synthesizeCached('缓存测试。', 'zh-CN-XiaoxiaoNeural', 0, synthesize);
+    await synthesizeCached('缓存测试。', 'zh-CN-XiaoxiaoNeural', 0, socket, synthesize);
+    await synthesizeCached('缓存测试。', 'zh-CN-XiaoxiaoNeural', 0, socket, synthesize);
     expect(synthesize).toHaveBeenCalledTimes(1);
-    await synthesizeCached('缓存测试。', 'zh-CN-XiaoxiaoNeural', 20, synthesize);
-    await synthesizeCached('另一段。', 'zh-CN-XiaoxiaoNeural', 0, synthesize);
+    await synthesizeCached('缓存测试。', 'zh-CN-XiaoxiaoNeural', 20, socket, synthesize);
+    await synthesizeCached('另一段。', 'zh-CN-XiaoxiaoNeural', 0, socket, synthesize);
     expect(synthesize).toHaveBeenCalledTimes(3);
     clearAudioCache();
   });
   it('does not cache a failed synthesis', async () => {
     clearAudioCache();
+    const socket = () => new FakeSocket();
     const synthesize = vi.fn()
       .mockRejectedValueOnce(new Error('Edge 语音服务没有返回音频。'))
       .mockResolvedValueOnce(new Blob(['audio'], { type: 'audio/mpeg' }));
-    await expect(synthesizeCached('重试。', 'zh-CN-XiaoxiaoNeural', 0, synthesize)).rejects.toThrow('没有返回音频');
-    await expect(synthesizeCached('重试。', 'zh-CN-XiaoxiaoNeural', 0, synthesize)).resolves.toBeInstanceOf(Blob);
+    await expect(synthesizeCached('重试。', 'zh-CN-XiaoxiaoNeural', 0, socket, synthesize)).rejects.toThrow('没有返回音频');
+    await expect(synthesizeCached('重试。', 'zh-CN-XiaoxiaoNeural', 0, socket, synthesize)).resolves.toBeInstanceOf(Blob);
     expect(synthesize).toHaveBeenCalledTimes(2);
     clearAudioCache();
+  });
+});
+
+describe('Edge transport headers', () => {
+  it('sends an Edge user agent, because anything else is rejected with HTTP 403', () => {
+    const headers = edgeSocketHeaders();
+    expect(headers['User-Agent']).toContain('Edg/');
+    expect(headers['User-Agent']).toContain(EDGE_CHROMIUM_VERSION.split('.')[0]);
+    expect(headers.Origin).toBe('chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold');
+    expect(headers['User-Agent']).not.toContain('obsidian');
+    expect(headers['User-Agent']).not.toContain('Electron');
   });
 });

@@ -4,10 +4,18 @@ import type { SummaryRecord, SummaryStyle } from './model';
  * Edge "Read Aloud" online voices. The endpoint is a WebSocket service that needs no API key,
  * but it rejects requests whose Sec-MS-GEC token is built from an outdated Chromium version.
  * Bump EDGE_CHROMIUM_VERSION when Microsoft rotates the requirement (edge-tts uses the same value).
+ *
+ * The service also requires a real Edge User-Agent: a browser WebSocket cannot override its own
+ * User-Agent, so the socket is opened from Node instead (see edge-socket.ts).
  */
 export const EDGE_TRUSTED_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
 export const EDGE_CHROMIUM_VERSION = '143.0.3650.75';
 export const EDGE_OUTPUT_FORMAT = 'audio-24khz-48kbitrate-mono-mp3';
+export const EDGE_ORIGIN = 'chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold';
+export const EDGE_USER_AGENT = (() => {
+  const major = EDGE_CHROMIUM_VERSION.split('.')[0];
+  return `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${major}.0.0.0 Safari/537.36 Edg/${major}.0.0.0`;
+})();
 export const TTS_TIMEOUT_MS = 30_000;
 export const TTS_SEGMENT_CHARS = 1_000;
 
@@ -122,9 +130,9 @@ export function edgeSocketUrl(gec: string, connectionId: string): string {
 export type EdgeFrame = { kind: 'audio'; payload: Uint8Array } | { kind: 'turnEnd' } | { kind: 'other'; text: string };
 
 /** Binary frames carry a 2-byte big-endian header length, a header, then MP3 bytes. */
-export function parseEdgeMessage(data: string | ArrayBuffer): EdgeFrame {
+export function parseEdgeMessage(data: string | ArrayBuffer | Uint8Array): EdgeFrame {
   if (typeof data === 'string') return data.includes('Path:turn.end') ? { kind: 'turnEnd' } : { kind: 'other', text: data };
-  const bytes = new Uint8Array(data);
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
   if (bytes.byteLength < 2) return { kind: 'other', text: '' };
   const headerLength = (bytes[0] << 8) | bytes[1];
   const header = new TextDecoder().decode(bytes.subarray(2, 2 + headerLength));
@@ -134,22 +142,25 @@ export function parseEdgeMessage(data: string | ArrayBuffer): EdgeFrame {
 export interface SpeechSocket {
   binaryType: string;
   onopen: (() => void) | null;
-  onmessage: ((event: { data: string | ArrayBuffer }) => void) | null;
+  onmessage: ((event: { data: string | ArrayBuffer | Uint8Array }) => void) | null;
   onerror: ((event: unknown) => void) | null;
   onclose: ((event: { code?: number }) => void) | null;
   send(data: string): void;
   close(): void;
 }
 
+export type EdgeSocketFactory = (url: string) => SpeechSocket;
+
 export interface SynthesizeOptions {
   text: string; voice: string; rate: number;
-  createSocket?: (url: string) => SpeechSocket;
+  /** Required: the Edge service rejects a browser User-Agent, so callers supply the Node socket. */
+  createSocket: EdgeSocketFactory;
   timeoutMs?: number;
 }
 
 function synthesizeSegment(options: SynthesizeOptions & { text: string }): Promise<Blob> {
   const connectionId = window.crypto.randomUUID().replace(/-/g, '');
-  const createSocket = options.createSocket ?? (url => new WebSocket(url) as unknown as SpeechSocket);
+  const createSocket = options.createSocket;
   return secMsGec(Date.now()).then(gec => new Promise<Blob>((resolve, reject) => {
     const socket = createSocket(edgeSocketUrl(gec, connectionId));
     socket.binaryType = 'arraybuffer';
@@ -201,11 +212,11 @@ const AUDIO_CACHE_LIMIT = 20;
 export function clearAudioCache() { audioCache.clear(); }
 
 /** Replays of the same summary, voice and rate reuse the synthesized audio. */
-export async function synthesizeCached(text: string, voice: string, rate: number, synthesize = synthesizeSpeech): Promise<Blob> {
+export async function synthesizeCached(text: string, voice: string, rate: number, createSocket: EdgeSocketFactory, synthesize = synthesizeSpeech): Promise<Blob> {
   const key = `${voice}|${rate}|${text}`;
   const cached = audioCache.get(key);
   if (cached) return cached;
-  const blob = await synthesize({ text, voice, rate });
+  const blob = await synthesize({ text, voice, rate, createSocket });
   if (audioCache.size >= AUDIO_CACHE_LIMIT) { const [oldest] = audioCache.keys(); if (oldest !== undefined) audioCache.delete(oldest); }
   audioCache.set(key, blob);
   return blob;

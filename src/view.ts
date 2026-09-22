@@ -13,6 +13,7 @@ import { sameRemoteContent, uniqueRemoteEntries, wechatArticleKey, xiaoyuzhouEpi
 import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, qiaomuChannelDivider, qiaomuFeaturedEntries, readerChannelSources } from './discovery';
 import { modeLabels, modeSchema, podcastDefaultMode, readingFontSchema, safeUrl, summaryStyleLabels, summaryStyles, titleOf, type ChannelState, type Bundle, type Entry, type Mode, type SummaryRecord, type SummaryStyle } from './model';
 import { synthesizeCached, summarySpeechText } from './tts';
+import { createEdgeSocket } from './edge-socket';
 export const VIEW_TYPE = 'qiaomu-ai-rss-reader';
 type Filter = 'all' | 'unread' | 'favorites';
 function feedHost(url: string) { try { return new URL(url).hostname; } catch { return 'RSS'; } }
@@ -852,7 +853,7 @@ export class ReaderView extends ItemView {
     const run = ++this.speechRun;
     this.speechLoading = true; this.refreshSummaryCard();
     try {
-      const blob = await synthesizeCached(text, voice, rate);
+      const blob = await synthesizeCached(text, voice, rate, createEdgeSocket);
       if (this.closed || this.speechRun !== run) return;
       this.playAudio(blob, run);
     } catch (error) {
