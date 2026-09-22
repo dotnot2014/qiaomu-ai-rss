@@ -2,7 +2,7 @@ import { addSearchClear } from './search-clear';
 import { Component, ItemView, Notice, setIcon, type WorkspaceLeaf } from 'obsidian';
 import type QiaomuRssPlugin from './main';
 import { searchPodcasts, searchWechat, type CatalogFeed, type PodcastSearchResult } from './source-catalog';
-import { blogCatalogSource, blogTags, categories, discoveryFeeds, filterDiscovery, independentBlogs, podcastRecommendations, wechatFeeds, type DiscoveryCollection } from './discovery';
+import { blogCatalogSource, blogTags, categories, discoveryFeeds, filterDiscovery, independentBlogs, podcastRecommendations, wechatFeeds, xiaoyuzhouPodcasts, type DiscoveryCollection } from './discovery';
 
 export const DISCOVERY_VIEW_TYPE = 'qiaomu-ai-rss-discovery';
 export class DiscoveryPanel extends Component {
@@ -42,7 +42,7 @@ export class DiscoveryPanel extends Component {
     const blogs = collections.createEl('button', { text: `独立博客 · ${independentBlogs.length}`, attr: { 'aria-pressed': String(this.collection === 'blogs') } });
     const wechat = collections.createEl('button', { text: '微信公众号', attr: { 'aria-pressed': String(this.collection === 'wechat') } });
     this.wechatTab = wechat;
-    const podcast = collections.createEl('button', { text: `海外播客 · 精选 ${podcastRecommendations.length}`, attr: { 'aria-pressed': String(this.collection === 'podcast') } });
+    const podcast = collections.createEl('button', { text: '播客', attr: { 'aria-pressed': String(this.collection === 'podcast') } });
     const standard = page.createEl('p', { cls: 'qrs-discovery-standard', text: '精选标准：长期原创、持续更新、RSS 全文、个人辨识度。目前 9 个，宁缺毋滥。' });
     const attribution = page.createDiv('qrs-discovery-attribution');
     attribution.createSpan({ text: '目录来自 ' });
@@ -78,7 +78,7 @@ export class DiscoveryPanel extends Component {
       featured.setAttribute('aria-pressed', String(collection === 'featured')); blogs.setAttribute('aria-pressed', String(collection === 'blogs')); wechat.setAttribute('aria-pressed', String(collection === 'wechat')); podcast.setAttribute('aria-pressed', String(collection === 'podcast'));
       filters.toggleClass('qrs-hidden', collection !== 'featured'); standard.toggleClass('qrs-hidden', collection !== 'featured');
       for (const el of [tags, attribution]) el.toggleClass('qrs-hidden', collection !== 'blogs');
-      search.placeholder = collection === 'blogs' ? '搜索博客、作者、网址或主题…' : collection === 'wechat' ? '搜索公众号目录…' : collection === 'podcast' ? '搜索更多海外播客…' : '搜索精选作者或主题…';
+      search.placeholder = collection === 'blogs' ? '搜索博客、作者、网址或主题…' : collection === 'wechat' ? '搜索公众号目录…' : collection === 'podcast' ? '搜索已收录小宇宙或更多海外播客…' : '搜索精选作者或主题…';
       this.refresh(); this.scheduleSearch();
       if (collection === 'podcast') void this.loadPodcastSources();
     };
@@ -177,8 +177,13 @@ export class DiscoveryPanel extends Component {
   private renderPodcasts() {
     const query = this.query.trim().toLocaleLowerCase();
     const recommended = podcastRecommendations.filter(show => `${show.name} ${show.nameZh}`.toLocaleLowerCase().includes(query));
-    const shows: { slug: string; name: string; nameZh: string; sourceId: string; description?: string }[] = [...recommended, ...this.onlinePodcasts.filter(show => !podcastRecommendations.some(item => item.slug === show.slug)).map(show => ({ ...show, nameZh: '', sourceId: `podscribe-${show.slug}` }))];
-    this.count.setText(this.onlineMessage || (query ? `${shows.length} 个搜索结果` : `精选 ${shows.length} 个播客 · 搜索可添加更多`));
+    const local = xiaoyuzhouPodcasts(this.plugin.state.sources).filter(show => show.name.toLocaleLowerCase().includes(query));
+    const shows: { name: string; nameZh: string; sourceId: string; description?: string; origin?: string }[] = [
+      ...local.map(show => ({ name: show.name, nameZh: '', sourceId: show.id, origin: '小宇宙' })),
+      ...recommended,
+      ...this.onlinePodcasts.filter(show => !podcastRecommendations.some(item => item.slug === show.slug)).map(show => ({ name: show.name, nameZh: '', sourceId: `podscribe-${show.slug}`, origin: '海外播客' })),
+    ];
+    this.count.setText(this.onlineMessage || (query ? `${shows.length} 个搜索结果` : `小宇宙 ${local.length} 个 · 海外精选 ${recommended.length} 个`));
     this.more.addClass('qrs-hidden');
     if (!shows.length) this.cards.createDiv({ cls: 'qrs-empty', text: '没有找到匹配的播客，试试更短的关键词。' });
     for (const show of shows) {
@@ -187,7 +192,7 @@ export class DiscoveryPanel extends Component {
       const card = this.cards.createEl('article', { cls: 'qrs-discovery-card', attr: { 'data-feed': show.sourceId } });
       const heading = card.createDiv('qrs-discovery-card-heading');
       setIcon(heading.createSpan('qrs-discovery-icon'), 'mic'); heading.createEl('h2', { text: show.name });
-      if (show.nameZh) card.createDiv({ cls: 'qrs-discovery-meta', text: show.nameZh });
+      if (show.nameZh || show.origin) card.createDiv({ cls: 'qrs-discovery-meta', text: show.nameZh || show.origin });
       if (show.description) card.createEl('p', { cls: 'qrs-discovery-description', text: show.description });
       const footer = card.createDiv('qrs-discovery-card-footer');
       const button = footer.createEl('button', { text: followed ? '阅读' : available ? '订阅' : '尚未开放' });

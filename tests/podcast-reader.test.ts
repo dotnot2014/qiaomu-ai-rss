@@ -9,6 +9,13 @@ const entry = { id, sourceId: 'podscribe-acquired', title: 'Episode', content: '
 const response = (value: unknown) => ({ status: 200, text: JSON.stringify(value) });
 
 describe('QMReader podcast integration', () => {
+  it('requests only the latest entry when filling the default curated feed', async () => {
+    let requested = '';
+    const api = new RssApi('https://rss.qiaomu.ai', async url => { requested = url; return response({ entries: [{ id: 'latest', sourceId: 'nexttoken', title: 'Latest' }] }); });
+    const page = await api.entries('nexttoken', '', 1);
+    expect(requested).toBe('https://rss.qiaomu.ai/api/sources/nexttoken/entries?limit=1');
+    expect(page.entries).toHaveLength(1);
+  });
   it('keeps the website curated order and migrates followed shows', () => {
     expect(podcastRecommendations.map(show => show.name)).toEqual([
       'Lex Fridman Podcast', 'All-In Podcast', 'Acquired', 'Pivot', 'Invest Like the Best',

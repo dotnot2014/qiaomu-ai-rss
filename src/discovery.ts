@@ -1,4 +1,5 @@
 import blogCatalog from './data/independent-blogs.json';
+import type { Entry, Source } from './model';
 export const blogCatalogSource = blogCatalog.source;
 export const blogCatalogRevision = blogCatalog.revision;
 
@@ -58,6 +59,21 @@ export const podcastRecommendations = [
   { name: 'Freakonomics Radio', nameZh: '魔鬼经济学电台', sourceId: 'podscribe-freakonomics-radio', slug: 'freakonomics-radio', description: '用经济学与采访探索日常现象背后的原因。' },
   { name: 'The Joe Rogan Experience', nameZh: '乔·罗根体验', sourceId: 'podscribe-the-joe-rogan-experience', slug: 'the-joe-rogan-experience', description: 'Joe Rogan 与科学家、作者、艺人等嘉宾进行长篇对谈。' },
 ] as const;
+export function xiaoyuzhouPodcasts(sources: Source[]): Source[] {
+  return sources.filter(source => {
+    if (source.category !== 'podcast' || source.enabled === false || !source.siteUrl) return false;
+    try { return new URL(source.siteUrl).hostname === 'www.xiaoyuzhoufm.com'; }
+    catch { return false; }
+  });
+}
+const featuredXiaoyuzhouIds = ['zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie'] as const;
+export function featuredXiaoyuzhouPodcasts(sources: Source[]): Source[] {
+  const available = new Map(xiaoyuzhouPodcasts(sources).map(source => [source.id, source]));
+  return featuredXiaoyuzhouIds.map(id => available.get(id)).filter((source): source is Source => !!source);
+}
+export function prependFeaturedPodcasts(entries: Entry[], latest: Entry[]): Entry[] {
+  return [...new Map([...latest, ...entries].map(entry => [entry.id, entry])).values()];
+}
 export const independentBlogs: DiscoveryFeed[] = blogCatalog.items
   .filter(blog => !BUILT_IN_FEED_URLS.has(blog.url))
   .map(blog => ({ ...blog, description: blog.tags.join(' · ') || '中文独立博客', category: '独立博客', language: '中文', icon: 'notebook-pen' }));
