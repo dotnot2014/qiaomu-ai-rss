@@ -10,7 +10,7 @@ import { articleFragment } from './content';
 import { saveArticleMarkdown, saveArticlePdf } from './desktop-export';
 import { renderMedia, stopMedia, youtubeEmbedUrl } from './media';
 import { sameRemoteContent, uniqueRemoteEntries, wechatArticleKey, xiaoyuzhouEpisodeKey } from './wechat-articles';
-import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, qiaomuChannelDivider, readerChannelSources } from './discovery';
+import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, qiaomuChannelDivider, qiaomuFeaturedEntries, readerChannelSources } from './discovery';
 import { modeLabels, modeSchema, podcastDefaultMode, readingFontSchema, safeUrl, titleOf, type ChannelState, type Bundle, type Entry, type Mode } from './model';
 export const VIEW_TYPE = 'qiaomu-ai-rss-reader';
 type Filter = 'all' | 'unread' | 'favorites';
@@ -54,14 +54,16 @@ export class ReaderView extends ItemView {
     this.restoreObserver.observe(this.list); this.restoreObserver.observe(this.reader);
   }
   private restoreChannel(saved: ChannelState) {
-    this.entries = saved.entries; this.bundle = saved.bundle; this.mode = saved.mode;
+    this.entries = this.source ? saved.entries : qiaomuFeaturedEntries(saved.entries);
+    this.bundle = !this.source && saved.bundle && !qiaomuFeaturedEntries([saved.bundle.entry]).length ? null : saved.bundle;
+    this.mode = saved.mode;
     this.filter = saved.filter; this.query = saved.query; this.unreadSession = new Set(saved.unread);
     this.cursor = saved.cursor; this.hasMore = saved.hasMore; this.lastListTop = saved.listTop; this.lastReaderTop = saved.readerTop;
     this.pendingScroll = { listTop: saved.listTop, readerTop: saved.readerTop };
     this.searchInput.value = this.query; this.searchBox.toggleClass('is-hidden', !this.query);
     this.contentEl.toggleClass('qrs-has-article', !!this.bundle);
     this.renderFilters(); this.renderList(); this.renderReader(); this.restoreOffsets();
-    if (saved.articlePending && saved.bundle) void this.openArticle(saved.bundle.entry, saved);
+    if (saved.articlePending && this.bundle) void this.openArticle(this.bundle.entry, saved);
   }
   private markdownComponent?: Component;
   private selectionCapture?: SelectionCapture;
@@ -176,7 +178,7 @@ export class ReaderView extends ItemView {
     this.focused = false; this.source = remembered !== 'levelingup' && (remembered === '@local' || this.plugin.state.settings.markdownFolders.some(folder => vaultSourceId(folder) === remembered) || groupExists || localExists || this.plugin.state.settings.followedPodcasts.includes(remembered) || readerChannelSources(this.plugin.state.sources).some(source => source.id === remembered)) ? remembered : '';
     this.cursor = ''; this.bundle = null; this.loading = false; this.hasMore = false;
     this.mode = this.plugin.state.settings.defaultMode;
-    this.entries = this.personalScope() ? this.localEntries() : this.source ? [] : this.plugin.state.entries;
+    this.entries = this.personalScope() ? this.localEntries() : this.source ? [] : qiaomuFeaturedEntries(this.plugin.state.entries);
     this.build();
     const saved = this.plugin.state.channelStates[this.channelKey()];
     if (saved) { this.restoreChannel(saved); if (!this.entries.length || !this.source) void this.loadEntries(); }
@@ -301,7 +303,7 @@ export class ReaderView extends ItemView {
     this.plugin.state.settings.lastSource = source; this.run(() => this.plugin.persist());
     this.bundle = null; this.articleVersion++; this.focused = false; this.contentEl.removeClass('qrs-focus');
     this.contentEl.removeClass('qrs-focus'); this.contentEl.removeClass('qrs-has-article');
-    this.entries = this.personalScope() ? this.localEntries() : source ? [] : this.plugin.state.entries;
+    this.entries = this.personalScope() ? this.localEntries() : source ? [] : qiaomuFeaturedEntries(this.plugin.state.entries);
     this.status.setText(''); this.renderChannel();
     const saved = this.plugin.state.channelStates[this.channelKey()];
     if (saved) { this.restoreChannel(saved); if (!this.entries.length && refresh) void this.loadEntries(); return; }
@@ -389,7 +391,8 @@ export class ReaderView extends ItemView {
       if (this.closed || version !== this.listVersion) return;
       if (sources.status === 'fulfilled') { state.sources = sources.value.sources; this.renderChannel(); }
       if (page.status === 'rejected') throw page.reason;
-      this.entries = more ? [...new Map([...this.entries, ...page.value.entries].map(entry => [entry.id, entry])).values()] : page.value.entries;
+      const pageEntries = this.source ? page.value.entries : qiaomuFeaturedEntries(page.value.entries);
+      this.entries = more ? [...new Map([...this.entries, ...pageEntries].map(entry => [entry.id, entry])).values()] : pageEntries;
       this.cursor = page.value.nextCursor || ''; this.hasMore = !!page.value.hasMore && !!this.cursor;
       if (!this.source && !more) {
         this.renderList();

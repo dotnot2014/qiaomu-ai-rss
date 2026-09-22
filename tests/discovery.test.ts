@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { discoveryFeeds, featuredXiaoyuzhouPodcasts, filterDiscovery, independentBlogs, podcastRecommendations, prependFeaturedPodcasts, qiaomuChannelDivider, readerChannelSources, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
+import { discoveryFeeds, featuredXiaoyuzhouPodcasts, filterDiscovery, independentBlogs, podcastRecommendations, prependFeaturedPodcasts, qiaomuChannelDivider, qiaomuFeaturedEntries, readerChannelSources, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
 import { initialState, safeUrl, withServiceOrigin } from '../src/model';
 import { compareChannelNames } from '../src/channel-order';
 
@@ -70,6 +70,15 @@ describe('local discovery catalog', () => {
     expect(readerChannelSources(sources).map(item => item.id)).not.toContain('lexfridman');
     expect(readerChannelSources(sources).map(item => item.id)).not.toContain('allin');
     expect(readerChannelSources(sources).map(item => item.id)).not.toContain('levelingup');
+  });
+  it('keeps All-In out of Qiaomu featured entries while preserving other shows', () => {
+    const entries = [
+      { id: 'video', sourceId: 'allin', title: 'YouTube clip' },
+      { id: 'transcript', sourceId: 'podscribe-all-in-with-chamath-jason-sacks-friedberg', title: 'All-In episode' },
+      { id: 'xiaoyuzhou', sourceId: 'nexttoken', title: 'Next Token episode' },
+    ];
+    expect(qiaomuFeaturedEntries(entries).map(entry => entry.id)).toEqual(['xiaoyuzhou']);
+    expect(entries).toHaveLength(3);
   });
   it('keeps visitor-added WeChat sources out of Qiaomu channels', () => {
     const source = (id: string) => ({ id, name: id, category: 'article', siteUrl: 'https://mp.weixin.qq.com/', enabled: true });
