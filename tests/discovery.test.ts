@@ -71,6 +71,15 @@ describe('local discovery catalog', () => {
     expect(readerChannelSources(sources).map(item => item.id)).not.toContain('allin');
     expect(readerChannelSources(sources).map(item => item.id)).not.toContain('levelingup');
   });
+  it('keeps visitor-added WeChat sources out of Qiaomu channels', () => {
+    const source = (id: string) => ({ id, name: id, category: 'article', siteUrl: 'https://mp.weixin.qq.com/', enabled: true });
+    const sources = [source('wechat-qiaomu'), source('wechat-bestblogs-1c3e3571b1627d23ee9c64521a0b0a41d3fe2987'),
+      source('wechat-bestblogs-9645a69180041ff935c458753174fa8bc2061295'), source('wechat-bestblogs-4c5d9bcc2fbfcd1dc81fb67559653f8957ef4760')];
+    expect(readerChannelSources(sources).map(item => item.id)).toEqual([
+      'wechat-qiaomu', 'wechat-bestblogs-1c3e3571b1627d23ee9c64521a0b0a41d3fe2987',
+      'wechat-bestblogs-9645a69180041ff935c458753174fa8bc2061295',
+    ]);
+  });
   it('adds visual dividers from source locations without changing source identity', () => {
     const source = (id: string, category: string, siteUrl: string) => ({ id, name: id, category, siteUrl });
     expect(qiaomuChannelDivider(source('wechat-qiaomu', 'article', 'https://mp.weixin.qq.com/'))).toBe('微信公众号');
