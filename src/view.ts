@@ -7,6 +7,7 @@ import { enableImageDrag, prepareMarkdownImageDrags } from './image-drag';
 import { SelectionCapture } from './selection';
 import { readingFonts, selectableFonts, fontFamily } from './fonts';
 import { articleFragment } from './content';
+import { saveArticleMarkdown, saveArticlePdf } from './desktop-export';
 import { renderMedia, stopMedia, youtubeEmbedUrl } from './media';
 import { sameRemoteContent, uniqueRemoteEntries, wechatArticleKey, xiaoyuzhouEpisodeKey } from './wechat-articles';
 import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, qiaomuChannelDivider, readerChannelSources } from './discovery';
@@ -658,6 +659,20 @@ export class ReaderView extends ItemView {
       const video = safeUrl(bundle.entry.videoUrl || '');
       if (video && youtubeEmbedUrl(video)) menu.addItem(item => item.setTitle('打开本期视频').setIcon('video').onClick(() => { this.contentEl.win.open(video, '_blank', 'noopener,noreferrer'); }));
       menu.addItem(item => item.setTitle('重新加载文章').setIcon('refresh-cw').onClick(() => { void this.openArticle(bundle.entry); }));
+      if (Platform.isDesktopApp) {
+        menu.addSeparator();
+        const mode = this.mode;
+        menu.addItem(item => item.setTitle('保存为 Markdown').setIcon('file-text').onClick(() => this.run(async () => {
+          const result = await saveArticleMarkdown(bundle, mode, this.contentEl.ownerDocument, this.plugin.images, this.plugin.state.settings.remoteImages);
+          if (result) new Notice(result.missingImages ? `Markdown 已保存，${result.missingImages} 张图片未能离线保存。` : 'Markdown 已保存。');
+        })));
+        menu.addItem(item => item.setTitle('导出为 PDF').setIcon('file-down').onClick(() => this.run(async () => {
+          const article = this.reader.querySelector<HTMLElement>('.qrs-article');
+          if (!article || this.bundle?.entry.id !== bundle.entry.id || this.mode !== mode) throw new Error('文章已切换，请重新打开导出菜单。');
+          const result = await saveArticlePdf(bundle, mode, article, this.plugin.images, this.plugin.state.settings);
+          if (result) new Notice(result.missingImages ? `PDF 已保存，${result.missingImages} 张图片未能导出。` : 'PDF 已保存。');
+        })));
+      }
       menu.addItem(item => item.setTitle('选择频道').setIcon('rss').onClick(() => this.pickChannel()));
       const rect = more.getBoundingClientRect(); menu.showAtPosition({ x: rect.left, y: rect.bottom });
     });
