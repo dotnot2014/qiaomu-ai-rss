@@ -9,6 +9,7 @@ import { readingFonts, selectableFonts, fontFamily } from './fonts';
 import { articleFragment } from './content';
 import { renderMedia, stopMedia, youtubeEmbedUrl } from './media';
 import { sameWechatArticle, uniqueWechatEntries, wechatArticleKey } from './wechat-articles';
+import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts } from './discovery';
 import { modeLabels, modeSchema, podcastDefaultMode, readingFontSchema, safeUrl, titleOf, type ChannelState, type Bundle, type Entry, type Mode } from './model';
 export const VIEW_TYPE = 'qiaomu-ai-rss-reader';
 type Filter = 'all' | 'unread' | 'favorites';
@@ -177,7 +178,7 @@ export class ReaderView extends ItemView {
     this.entries = this.personalScope() ? this.localEntries() : this.source ? [] : this.plugin.state.entries;
     this.build();
     const saved = this.plugin.state.channelStates[this.channelKey()];
-    if (saved) { this.restoreChannel(saved); if (!this.entries.length) void this.loadEntries(); }
+    if (saved) { this.restoreChannel(saved); if (!this.entries.length || !this.source) void this.loadEntries(); }
     else { this.renderList(); this.renderReader(); void this.loadEntries(); }
   }
   private run(action: () => Promise<void>) {
@@ -385,6 +386,13 @@ export class ReaderView extends ItemView {
       if (page.status === 'rejected') throw page.reason;
       this.entries = more ? [...new Map([...this.entries, ...page.value.entries].map(entry => [entry.id, entry])).values()] : page.value.entries;
       this.cursor = page.value.nextCursor || ''; this.hasMore = !!page.value.hasMore && !!this.cursor;
+      if (!this.source && !more) {
+        this.renderList();
+        const featured = featuredXiaoyuzhouPodcasts(state.sources);
+        const latest = await Promise.allSettled(featured.map(source => api.entries(source.id, '', 1)));
+        if (this.closed || version !== this.listVersion) return;
+        this.entries = prependFeaturedPodcasts(this.entries, latest.flatMap(result => result.status === 'fulfilled' ? result.value.entries : []));
+      }
       if (!this.source) { state.entries = this.entries; state.updatedAt = Date.now(); }
       await this.plugin.persist();
       if (this.closed || version !== this.listVersion) return;

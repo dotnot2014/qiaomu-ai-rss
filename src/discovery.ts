@@ -1,5 +1,5 @@
 import blogCatalog from './data/independent-blogs.json';
-import type { Source } from './model';
+import type { Entry, Source } from './model';
 export const blogCatalogSource = blogCatalog.source;
 export const blogCatalogRevision = blogCatalog.revision;
 
@@ -65,6 +65,14 @@ export function xiaoyuzhouPodcasts(sources: Source[]): Source[] {
     try { return new URL(source.siteUrl).hostname === 'www.xiaoyuzhoufm.com'; }
     catch { return false; }
   });
+}
+const featuredXiaoyuzhouIds = ['zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie'] as const;
+export function featuredXiaoyuzhouPodcasts(sources: Source[]): Source[] {
+  const available = new Map(xiaoyuzhouPodcasts(sources).map(source => [source.id, source]));
+  return featuredXiaoyuzhouIds.map(id => available.get(id)).filter((source): source is Source => !!source);
+}
+export function prependFeaturedPodcasts(entries: Entry[], latest: Entry[]): Entry[] {
+  return [...new Map([...latest, ...entries].map(entry => [entry.id, entry])).values()];
 }
 export const independentBlogs: DiscoveryFeed[] = blogCatalog.items
   .filter(blog => !BUILT_IN_FEED_URLS.has(blog.url))

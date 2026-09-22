@@ -38,8 +38,8 @@ export class RssApi {
     } finally { window.clearTimeout(timer); }
   }
   sources() { return this.get('/api/sources', z.object({ sources: z.array(sourceSchema) })); }
-  entries(source = '', cursor = '') {
-    const query = new URLSearchParams({ limit: source ? '40' : '100' });
+  entries(source = '', cursor = '', limit = source ? 40 : 100) {
+    const query = new URLSearchParams({ limit: String(limit) });
     if (cursor) query.set('cursor', cursor);
     const path = source ? `/api/sources/${encodeURIComponent(source)}/entries` : '/api/entries';
     return this.get(`${path}?${query}`, pageSchema.extend({ entries: z.array(remoteEntrySchema) }));

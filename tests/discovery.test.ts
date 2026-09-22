@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { discoveryFeeds, filterDiscovery, independentBlogs, podcastRecommendations, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
+import { discoveryFeeds, featuredXiaoyuzhouPodcasts, filterDiscovery, independentBlogs, podcastRecommendations, prependFeaturedPodcasts, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
 import { initialState, safeUrl, withServiceOrigin } from '../src/model';
 
 describe('local discovery catalog', () => {
@@ -46,6 +46,18 @@ describe('local discovery catalog', () => {
       { id: 'other', name: '其他节目', category: 'podcast', siteUrl: 'https://example.com/podcast/123', enabled: true },
     ] }).sources;
     expect(xiaoyuzhouPodcasts(sources).map(source => source.id)).toEqual(['latetalk']);
+  });
+  it('pins one latest episode from each selected Xiaoyuzhou show in the default feed', () => {
+    const sources = initialState({ sources: [
+      { id: '42zhangjing', name: '42章经', category: 'podcast', siteUrl: 'https://www.xiaoyuzhoufm.com/podcast/42', enabled: true },
+      { id: 'nexttoken', name: 'Next Token', category: 'podcast', siteUrl: 'https://www.xiaoyuzhoufm.com/podcast/next', enabled: true },
+      { id: 'zhangxiaojun', name: '张小珺', category: 'podcast', siteUrl: 'https://www.xiaoyuzhoufm.com/podcast/zhang', enabled: true },
+      { id: 'latetalk', name: '晚点聊', category: 'podcast', siteUrl: 'https://www.xiaoyuzhoufm.com/podcast/late', enabled: false },
+    ] }).sources;
+    expect(featuredXiaoyuzhouPodcasts(sources).map(source => source.id)).toEqual(['zhangxiaojun', 'nexttoken', '42zhangjing']);
+    const entry = (id: string, sourceId: string) => ({ id, sourceId, title: id });
+    expect(prependFeaturedPodcasts([entry('news', 'news'), entry('zhang-1', 'zhangxiaojun')], [entry('zhang-1', 'zhangxiaojun'), entry('next-1', 'nexttoken')]).map(item => item.id))
+      .toEqual(['zhang-1', 'next-1', 'news']);
   });
   it('migrates settings and preserves existing feed URLs across instance and Qiaomu changes', () => {
     const state = initialState({ settings: { folder: 'Notes' }, subscriptions: [{ id: 'test', url: 'https://old.example/36kr/newsflashes', name: 'News' }] });
