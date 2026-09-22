@@ -136,6 +136,15 @@ describe('QMReader podcast integration', () => {
     const { bundle } = await api.article(preview.id, preview);
     expect(bundle.entry.videoUrl).toBeNull();
   });
+  it('uses an explicit episode video from any overseas podcast description but ignores guest channels', async () => {
+    const api = new RssApi('https://rss.qiaomu.ai', async () => response({ episodes: [
+      { show_slug: 'masters-of-scale', episode_slug: 'one', title: 'One', description: 'Watch this episode on YouTube: https://www.youtube.com/watch?v=Y4jc66RXjvk' },
+      { show_slug: 'masters-of-scale', episode_slug: 'two', title: 'Two', description: 'Follow our guest at https://www.youtube.com/watch?v=JtomF4bGxHs' },
+    ], pagination: { has_next: false } }));
+    const page = await api.podcastEpisodes('podscribe-masters-of-scale');
+    expect(page.entries[0].videoUrl).toBe('https://www.youtube.com/watch?v=Y4jc66RXjvk');
+    expect(page.entries[1].videoUrl).toBeNull();
+  });
 
   it('keeps exact dates and upstream metadata without inventing dates from relative text', async () => {
     const api = new RssApi('https://rss.qiaomu.ai', async () => response({ episodes: [

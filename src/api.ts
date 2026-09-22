@@ -24,6 +24,13 @@ function transcriptHtml(value: string, sourceUrl?: string): string {
 function normalizedPodcastTitle(value: string): string {
   return value.normalize('NFKC').toLowerCase().replace(/&amp;/g, '&').replace(/[^\p{Letter}\p{Number}]+/gu, ' ').trim();
 }
+function episodeVideoInDescription(description: string | undefined): string | null {
+  if (!description) return null;
+  // Only trust a link explicitly labelled as this episode's video, not a guest's channel or a clip.
+  const match = /(?:watch|view)\s+(?:the\s+|this\s+)?episode\s+on\s+youtube\s*[:：]?\s*(https:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[A-Za-z0-9_-]{11}(?:[^\s<]*)?)/i.exec(description);
+  const url = match?.[1]?.replace(/[.,;，。；]+$/, '') || null;
+  return youtubeEmbedUrl(url) ? url : null;
+}
 function matchingVideo(episode: Entry, candidates: Entry[], sourceId: string): string | null {
   const title = normalizedPodcastTitle(episode.title);
   const matches = candidates.filter(candidate => {
@@ -70,6 +77,7 @@ export class RssApi {
         id: `${sourceId}/${episode.episode_slug}`, sourceId, origin: 'qiaomu', podcastSlug: slug, episodeSlug: episode.episode_slug,
         title: episode.title, summary: episode.description?.slice(0, 300) || '',
         link: episode.url || `https://podcasts.happyscribe.com/${slug}/${episode.episode_slug}`,
+        videoUrl: episodeVideoInDescription(episode.description),
         published: date?.published, publishedTs: date?.publishedTs,
         publishedRelative: episode.published_relative || (!date ? episode.published_at : null),
         podcastViews: episode.views, podcastWordCount: episode.word_count, podcastDurationSeconds: episode.duration_seconds,
@@ -89,7 +97,7 @@ export class RssApi {
       if (videoSource) {
         try {
           const page = await this.entries(videoSource, '', 100);
-          entry.videoUrl = matchingVideo(entry, page.entries, videoSource);
+          entry.videoUrl = matchingVideo(entry, page.entries, videoSource) || entry.videoUrl || null;
         } catch { /* A video is optional; the source transcript remains readable. */ }
       }
       return { bundle: bundleSchema.parse({ entry, rewrite: null, translation: null, fetchedAt: Date.now() }), warnings: [] };
