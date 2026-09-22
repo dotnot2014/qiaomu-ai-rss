@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { discoveryFeeds, featuredXiaoyuzhouPodcasts, filterDiscovery, independentBlogs, podcastRecommendations, prependFeaturedPodcasts, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
+import { discoveryFeeds, featuredXiaoyuzhouPodcasts, filterDiscovery, independentBlogs, podcastRecommendations, prependFeaturedPodcasts, readerChannelSources, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
 import { initialState, safeUrl, withServiceOrigin } from '../src/model';
 
 describe('local discovery catalog', () => {
@@ -58,6 +58,15 @@ describe('local discovery catalog', () => {
     const entry = (id: string, sourceId: string) => ({ id, sourceId, title: id });
     expect(prependFeaturedPodcasts([entry('news', 'news'), entry('zhang-1', 'zhangxiaojun')], [entry('zhang-1', 'zhangxiaojun'), entry('next-1', 'nexttoken')]).map(item => item.id))
       .toEqual(['zhang-1', 'next-1', 'news']);
+  });
+  it('shows selected Xiaoyuzhou shows as Qiaomu channels before subscription', () => {
+    const source = (id: string, category: string, siteUrl?: string, enabled = true) => ({ id, name: id, category, siteUrl, enabled });
+    const xy = (id: string) => source(id, 'podcast', `https://www.xiaoyuzhoufm.com/podcast/${id}`);
+    const sources = [source('news', 'news'), xy('zhangxiaojun'), xy('nexttoken'), xy('42zhangjing'), xy('latetalk'), xy('bannatie'),
+      source('lexfridman', 'podcast', 'https://lexfridman.com'), source('allin', 'podcast', 'https://youtube.com', false)];
+    expect(readerChannelSources(sources, []).map(item => item.id)).toEqual(['news', 'zhangxiaojun', 'nexttoken', '42zhangjing', 'latetalk', 'bannatie']);
+    expect(readerChannelSources(sources, ['lexfridman', 'allin']).map(item => item.id)).toContain('lexfridman');
+    expect(readerChannelSources(sources, ['lexfridman', 'allin']).map(item => item.id)).not.toContain('allin');
   });
   it('migrates settings and preserves existing feed URLs across instance and Qiaomu changes', () => {
     const state = initialState({ settings: { folder: 'Notes' }, subscriptions: [{ id: 'test', url: 'https://old.example/36kr/newsflashes', name: 'News' }] });

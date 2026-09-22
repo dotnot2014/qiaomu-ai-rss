@@ -9,7 +9,7 @@ import { readingFonts, selectableFonts, fontFamily } from './fonts';
 import { articleFragment } from './content';
 import { renderMedia, stopMedia, youtubeEmbedUrl } from './media';
 import { sameWechatArticle, uniqueWechatEntries, wechatArticleKey } from './wechat-articles';
-import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts } from './discovery';
+import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, readerChannelSources } from './discovery';
 import { modeLabels, modeSchema, podcastDefaultMode, readingFontSchema, safeUrl, titleOf, type ChannelState, type Bundle, type Entry, type Mode } from './model';
 export const VIEW_TYPE = 'qiaomu-ai-rss-reader';
 type Filter = 'all' | 'unread' | 'favorites';
@@ -263,7 +263,7 @@ export class ReaderView extends ItemView {
       ...groups.map(group => ({ id: `@group:${group}`, name: group, section: '订阅分组' as const,
         subtitle: `${feeds.filter(feed => feed.group === group).length} 个订阅源`, icon: 'folder' })),
       ...this.plugin.state.settings.followedPodcasts.filter(id => !this.plugin.state.sources.some(source => source.id === id && source.enabled !== false)).map(id => ({ id, name: this.plugin.state.settings.podcastNames[id] || id.replace(/^podscribe-/, ''), section: '乔木频道' as const, subtitle: '海外播客 · 源文稿', icon: 'mic' })),
-      ...this.plugin.state.sources.filter(source => source.enabled !== false && (source.category !== 'podcast' || this.plugin.state.settings.followedPodcasts.includes(source.id))).map(source => ({ id: source.id, name: source.name, section: '乔木频道' as const,
+      ...readerChannelSources(this.plugin.state.sources, this.plugin.state.settings.followedPodcasts).map(source => ({ id: source.id, name: source.name, section: '乔木频道' as const,
         subtitle: ({ article: '文章', news: '新闻', podcast: '播客' } as Record<string, string>)[source.category || ''] || source.category || '乔木内容频道', monogram: source.name.trim().slice(0, 1) })),
       ...feeds.map(feed => ({ id: feed.id, name: feed.name, section: '我的订阅源' as const,
         subtitle: `${feed.group ? `${feed.group} · ` : ''}${feedHost(feed.url)} · ${feed.entries.length} 篇`, monogram: feed.name.trim().slice(0, 1), group: feed.group })),

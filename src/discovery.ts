@@ -71,6 +71,11 @@ export function featuredXiaoyuzhouPodcasts(sources: Source[]): Source[] {
   const available = new Map(xiaoyuzhouPodcasts(sources).map(source => [source.id, source]));
   return featuredXiaoyuzhouIds.map(id => available.get(id)).filter((source): source is Source => !!source);
 }
+export function readerChannelSources(sources: Source[], followedPodcasts: string[]): Source[] {
+  const featuredIds = new Set(featuredXiaoyuzhouPodcasts(sources).map(source => source.id));
+  return sources.filter(source => source.enabled !== false &&
+    (source.category !== 'podcast' || featuredIds.has(source.id) || followedPodcasts.includes(source.id)));
+}
 export function prependFeaturedPodcasts(entries: Entry[], latest: Entry[]): Entry[] {
   return [...new Map([...latest, ...entries].map(entry => [entry.id, entry])).values()];
 }
