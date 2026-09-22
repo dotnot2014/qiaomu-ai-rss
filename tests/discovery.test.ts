@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { discoveryFeeds, featuredXiaoyuzhouPodcasts, filterDiscovery, independentBlogs, podcastRecommendations, prependFeaturedPodcasts, qiaomuChannelDivider, readerChannelSources, wechatFeeds, xiaoyuzhouPodcasts } from '../src/discovery';
 import { initialState, safeUrl, withServiceOrigin } from '../src/model';
+import { compareChannelNames } from '../src/channel-order';
 
 describe('local discovery catalog', () => {
   it('bundles unique safe feed URLs and blog home pages', () => {
@@ -77,6 +78,14 @@ describe('local discovery catalog', () => {
     expect(qiaomuChannelDivider(source('bensbites', 'article', 'https://www.bensbites.com'))).toBe('Newsletter');
     expect(qiaomuChannelDivider(source('producthunt', 'news', 'https://www.producthunt.com'))).toBe('资讯');
     expect(qiaomuChannelDivider(source('qiaomu-blog', 'article', 'https://blog.qiaomu.ai'))).toBe('博客与网站');
+  });
+  it('sorts channels by Chinese pinyin and English letters within each divider', () => {
+    const items = ['张三', '阿里', '百度'].map(name => ({ name, id: name }));
+    expect(items.sort(compareChannelNames).map(item => item.name)).toEqual(['阿里', '百度', '张三']);
+    const english = ['Zulu', 'alpha', 'Beta'].map(name => ({ name, id: name }));
+    expect(english.sort(compareChannelNames).map(item => item.name)).toEqual(['alpha', 'Beta', 'Zulu']);
+    const mixed = ['歸藏', 'elsewhere', 'AGENT橘', '李继刚'].map(name => ({ name, id: name }));
+    expect(mixed.sort(compareChannelNames).map(item => item.name)).toEqual(['AGENT橘', 'elsewhere', '歸藏', '李继刚']);
   });
   it('migrates settings and preserves existing feed URLs across instance and Qiaomu changes', () => {
     const state = initialState({ settings: { folder: 'Notes' }, subscriptions: [{ id: 'test', url: 'https://old.example/36kr/newsflashes', name: 'News' }] });

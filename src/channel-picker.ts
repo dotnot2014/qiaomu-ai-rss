@@ -1,4 +1,5 @@
 import { addSearchClear } from './search-clear';
+import { compareChannelNames } from './channel-order';
 import { Component, Platform, setIcon } from 'obsidian';
 export type ChannelSection = '聚合' | '订阅分组' | '乔木频道' | '已订阅播客' | '我的订阅源' | '库内文件夹';
 export interface ChannelChoice { id: string; name: string; section: ChannelSection; subtitle: string; icon?: string; monogram?: string; group?: string; divider?: string }
@@ -98,7 +99,7 @@ export class ChannelPicker extends Component {
       this.rows.createDiv({ cls: 'qrs-channel-section', text: label });
       if (section === '乔木频道') {
         for (const divider of ['微信公众号', '小宇宙', 'YouTube', 'Newsletter', '资讯', '博客与网站']) {
-          const items = choices.filter(choice => choice.divider === divider);
+          const items = choices.filter(choice => choice.divider === divider).sort(compareChannelNames);
           if (!items.length) continue;
           this.rows.createDiv({ cls: 'qrs-channel-subsection', text: divider });
           items.forEach(choice => row(choice));
