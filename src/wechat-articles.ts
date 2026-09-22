@@ -19,12 +19,30 @@ export function sameWechatArticle(a: Entry, b: Entry): boolean {
   return !!key && a.sourceId === b.sourceId && key === wechatArticleKey(b.link);
 }
 
+/** Xiaoyuzhou can return the same episode twice, with and without RSS tracking parameters. */
+export function xiaoyuzhouEpisodeKey(link: string | null | undefined): string | null {
+  if (!link) return null;
+  try {
+    const url = new URL(link);
+    if (url.protocol !== 'https:' || url.hostname !== 'www.xiaoyuzhoufm.com') return null;
+    return /^\/episode\/([a-z0-9]+)\/?$/i.exec(url.pathname)?.[1].toLowerCase() || null;
+  } catch { return null; }
+}
+
+export function sameRemoteContent(a: Entry, b: Entry): boolean {
+  if (a.sourceId !== b.sourceId) return false;
+  const wechat = wechatArticleKey(a.link);
+  if (wechat) return wechat === wechatArticleKey(b.link);
+  const episode = xiaoyuzhouEpisodeKey(a.link);
+  return !!episode && episode === xiaoyuzhouEpisodeKey(b.link);
+}
+
 /** Collapse duplicate records only in the displayed list; keep saved articles and source data intact. */
-export function uniqueWechatEntries(entries: Entry[], selectedId?: string): Entry[] {
+export function uniqueRemoteEntries(entries: Entry[], selectedId?: string): Entry[] {
   const result: Entry[] = [];
   const positions = new Map<string, number>();
   for (const entry of entries) {
-    const article = wechatArticleKey(entry.link);
+    const article = wechatArticleKey(entry.link) || xiaoyuzhouEpisodeKey(entry.link);
     if (!article) { result.push(entry); continue; }
     const key = `${entry.sourceId}:${article}`;
     const position = positions.get(key);
