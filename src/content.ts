@@ -41,3 +41,10 @@ export function articleFragment(bundle: Bundle, mode: Mode, doc: Document, image
 function escapeHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+/** Sanitized plain text of the currently displayed version, used as AI summary input. */
+export function articleText(bundle: Bundle, mode: Mode, doc: Document): string {
+  try {
+    const fragment = articleFragment(bundle, mode, doc, false);
+    return (fragment?.textContent || '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  } catch { return ''; }
+}

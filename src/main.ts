@@ -1,8 +1,11 @@
 import { EditorView } from '@codemirror/view';
-import { MarkdownView, Notice, Plugin, PluginSettingTab, TFile, type App, type SettingDefinitionItem } from 'obsidian';
+import { MarkdownView, Notice, Plugin, PluginSettingTab, TFile, type App, type SettingDefinitionItem, type SettingGroupItem } from 'obsidian';
 import { requestUrl } from 'obsidian';
 import { RssApi } from './api';
-import { folderPath, initialState, modeLabels, modeSchema, readingFontSchema, type Bundle, type Entry, type Mode, type State } from './model';
+import { folderPath, initialState, modeLabels, modeSchema, readingFontSchema, summaryRecordSchema, summaryStyleLabels, summaryStyleSchema, titleOf, type Bundle, type Entry, type Mode, type State, type SummaryRecord } from './model';
+import { articleText } from './content';
+import { requestSummary, type SummaryTransport } from './summary';
+import { synthesizeSpeech, ttsVoices } from './tts';
 import { cleanCaptureMarkers, repairArticleLinks, appendDailyNoteLink, dailyNotePath, readDailyNoteSettings, renderDailyNoteTemplate } from './daily-note';
 import { ReaderView, VIEW_TYPE } from './view';
 import { vaultSourceId, VaultFolderPicker, VaultSources } from './vault-source';
@@ -89,6 +92,41 @@ export default class QiaomuRssPlugin extends Plugin {
       const response = await requestUrl({ url, method: 'GET', headers: { Accept: 'application/json' }, throw: false });
       return { status: response.status, text: response.text };
     });
+  }
+  private summaryTransport(): SummaryTransport {
+    return async ({ url, method, headers, body }) => {
+      const response = await requestUrl({ url, method, headers, body, throw: false });
+      return { status: response.status, text: response.text };
+    };
+  }
+  summaryConfigured(): boolean {
+    return !!this.state.settings.summaryBaseUrl.trim() && !!this.state.settings.summaryModel.trim();
+  }
+  /** Sends only the sanitized plain text of the currently displayed version. */
+  async summarizeArticle(bundle: Bundle, mode: Mode, doc: Document): Promise<SummaryRecord> {
+    const settings = this.state.settings;
+    const body = await requestSummary({
+      endpoint: settings.summaryBaseUrl, apiKey: settings.summaryApiKey, model: settings.summaryModel,
+      title: titleOf(bundle.entry), text: articleText(bundle, mode, doc), transport: this.summaryTransport(),
+    });
+    return summaryRecordSchema.parse({ ...body, model: settings.summaryModel.trim(), fetchedAt: Date.now() });
+  }
+  async testSummary(): Promise<string> {
+    const settings = this.state.settings;
+    const body = await requestSummary({
+      endpoint: settings.summaryBaseUrl, apiKey: settings.summaryApiKey, model: settings.summaryModel,
+      title: '连接测试', text: '这是一段用于验证接口配置的测试文本，请按约定的 JSON 结构返回。', transport: this.summaryTransport(),
+    });
+    return body.overview || body.core || '接口可用，但未返回总结内容。';
+  }
+  async testSpeech(): Promise<void> {
+    const settings = this.state.settings;
+    const blob = await synthesizeSpeech({ text: '这是乔木 RSS 的语音试听，用来确认音色和语速。', voice: settings.ttsVoice, rate: settings.ttsRate });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    const release = () => URL.revokeObjectURL(url);
+    audio.onended = release; audio.onerror = release;
+    await audio.play();
   }
   async openReader() {
     try {
@@ -302,6 +340,58 @@ class RssSettings extends PluginSettingTab {
   getSettingDefinitions(): SettingDefinitionItem[] {
     const settings = this.plugin.state.settings;
     const saveReading = async () => { this.plugin.refreshPreferences(); await this.plugin.persist(); };
+    const textRow = (name: string, desc: string, value: () => string, apply: (next: string) => void, placeholder: string, secret = false): SettingGroupItem => ({
+      name, desc, render: setting => { setting.addText(text => {
+        if (secret) text.inputEl.type = 'password';
+        text.setPlaceholder(placeholder).setValue(value()).onChange(next => apply(next));
+        text.inputEl.addEventListener('blur', () => { void this.plugin.persist(); });
+      }); },
+    });
+    const aiGroup: SettingDefinitionItem = { type: 'group', heading: 'AI 总结', items: [
+      { name: '使用说明', desc: '在正文工具栏点击「AI 总结」按钮，为当前显示的版本生成总结，结果会缓存在本库。文章纯文本会发送到下面填写的接口，因此第三方服务会收到文章内容；不填写则不会发出任何请求。' },
+      textRow('接口地址', 'OpenAI 兼容的 Base URL，插件请求 <地址>/chat/completions。例如 https://api.deepseek.com/v1、https://api.openai.com/v1 或 http://localhost:11434/v1。', () => settings.summaryBaseUrl, next => { settings.summaryBaseUrl = next.trim().slice(0, 300); }, 'https://api.deepseek.com/v1'),
+      textRow('API Key', '仅保存在当前库的插件数据中（明文，不会上传给乔木）。本地 Ollama 等无需鉴权的服务可留空。', () => settings.summaryApiKey, next => { settings.summaryApiKey = next.trim().slice(0, 500); }, 'sk-…', true),
+      textRow('模型名称', '按接口要求填写，例如 deepseek-chat、gpt-4o-mini、qwen2.5:7b。', () => settings.summaryModel, next => { settings.summaryModel = next.trim().slice(0, 200); }, 'deepseek-chat'),
+      { name: '默认总结样式', desc: '每打开一篇文章时使用的初始样式（默认速览）。在文章内切换只对当前这篇文章生效，换一篇文章会重新从这个默认样式开始；四种样式共用同一次请求结果，切换不会重复调用接口。', render: setting => {
+        setting.addDropdown(drop => {
+          for (const [value, label] of Object.entries(summaryStyleLabels)) drop.addOption(value, label);
+          drop.setValue(settings.summaryStyle).onChange(async value => { settings.summaryStyle = summaryStyleSchema.parse(value); await this.plugin.persist(); });
+        });
+      } },
+      { name: '测试连接', desc: '发送一小段测试文本，验证地址、密钥与模型是否可用。', render: setting => {
+        setting.addButton(button => button.setButtonText('测试').onClick(async () => {
+          if (!this.plugin.summaryConfigured()) { new Notice('请先填写接口地址和模型名称。'); return; }
+          button.setDisabled(true).setButtonText('测试中…');
+          try { new Notice(`连接成功：${(await this.plugin.testSummary()).slice(0, 60)}`); }
+          catch (error) { new Notice(error instanceof Error ? error.message : '连接失败，请检查接口配置。'); }
+          finally { button.setDisabled(false).setButtonText('测试'); }
+        }));
+      } },
+    ] };
+    const ttsRates: [string, string][] = [['-40', '慢 · -40%'], ['-20', '稍慢 · -20%'], ['0', '正常'], ['20', '稍快 · +20%'], ['40', '快 · +40%']];
+    const ttsGroup: SettingDefinitionItem = { type: 'group', heading: '语音朗读', items: [
+      { name: '说明', desc: '点击总结卡片上的喇叭按钮，朗读当前显示的那一种样式。语音由 Microsoft Edge 在线语音合成，需要联网，音质明显好于系统内置嗓音，因此不提供系统语音回退；连接失败时会直接显示原因。只有点朗读或试听时才会把总结文本发给 Microsoft，不会发送文章正文。' },
+      { name: '音色', desc: 'Edge 在线语音的中文与英文音色。', render: setting => {
+        setting.addDropdown(drop => {
+          for (const voice of ttsVoices) drop.addOption(voice.id, voice.name);
+          drop.setValue(settings.ttsVoice).onChange(async value => { settings.ttsVoice = value.slice(0, 100); await this.plugin.persist(); });
+        });
+      } },
+      { name: '语速', render: setting => {
+        setting.addDropdown(drop => {
+          for (const [value, label] of ttsRates) drop.addOption(value, label);
+          drop.setValue(String(settings.ttsRate)).onChange(async value => { settings.ttsRate = Number(value); await this.plugin.persist(); });
+        });
+      } },
+      { name: '试听', desc: '按当前音色与语速合成一小段示例，用于确认效果。', render: setting => {
+        setting.addButton(button => button.setButtonText('试听').onClick(async () => {
+          button.setDisabled(true).setButtonText('合成中…');
+          try { await this.plugin.testSpeech(); }
+          catch (error) { new Notice(error instanceof Error ? error.message : '语音合成失败，请检查网络。'); }
+          finally { button.setDisabled(false).setButtonText('试听'); }
+        }));
+      } },
+    ] };
     const definitions: SettingDefinitionItem[] = [
       { type: 'group', heading: '阅读与摘录', items: [
         { name: '选中文字时显示摘录浮层', desc: '默认开启。选中文字后可追加到今日日记或当前笔记。', render: setting => {
@@ -372,11 +462,12 @@ class RssSettings extends PluginSettingTab {
         { name: '更新记录', render: setting => {
           const details = setting.descEl.createEl('details');
           details.createEl('summary', { text: '查看本次更新' });
-          details.createEl('p', { text: '修复设置 tab 菜单重复；空白阅读区新增场景提示与快捷键。保留离线朱雀仿宋、设备字体和频道阅读进度。' });
+          details.createEl('p', { text: '新增「AI 总结」：正文工具栏一键生成，可切换速览、要点、结构、金句四种样式，按文章缓存；总结卡片可用 Microsoft Edge 在线语音朗读当前样式，支持音色与语速设置。' });
           details.createEl('a', { text: '完整更新记录', href: 'https://github.com/joeseesun/qiaomu-ai-rss/releases', attr: { target: '_blank', rel: 'noopener noreferrer' } });
         } },
       ] },
       { name: '本地数据', desc: '已读、收藏与缓存保存在当前库。浏览频道、切换文章或刷新时请求服务，不会上传你的笔记。' },
+      aiGroup,
     ];
     const reading = definitions[0];
     if (!('type' in reading) || reading.type !== 'group') return definitions;
@@ -385,6 +476,7 @@ class RssSettings extends PluginSettingTab {
     const buckets: Record<string, SettingDefinitionItem[]> = {
       '阅读': [reading, definitions[4], definitions[5]],
       '来源': [definitions[2], definitions[1], definitions[3]],
+      'AI 总结': [aiGroup, ttsGroup],
       '摘录': [excerpt, definitions[7]],
       '关于': [definitions[6], ...[
         ['反馈 Bug', '在 GitHub 提交问题', 'https://github.com/joeseesun/qiaomu-ai-rss/issues/new'],

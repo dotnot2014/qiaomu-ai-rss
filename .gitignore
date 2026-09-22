@@ -1,8 +1,9 @@
 node_modules/
 main.js
-.test-vault/
+test-vault/
 coverage/
 .DS_Store
 .env*
 *.log
 artifacts/
+backups/

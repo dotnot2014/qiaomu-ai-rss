@@ -3,6 +3,17 @@ import { z } from 'zod';
 export const modeSchema = z.enum(['rewrite', 'translation', 'original']);
 export type Mode = z.infer<typeof modeSchema>;
 export const modeLabels: Record<Mode, string> = { rewrite: '乔木改写', translation: '中文翻译', original: '原文' };
+export const summaryStyles = ['overview', 'bullets', 'structure', 'quotes'] as const;
+export const summaryStyleSchema = z.enum(summaryStyles);
+export type SummaryStyle = z.infer<typeof summaryStyleSchema>;
+export const summaryStyleLabels: Record<SummaryStyle, string> = { overview: '速览', bullets: '要点', structure: '结构', quotes: '金句' };
+export const summaryRecordSchema = z.object({
+  overview: z.string().default(''), bullets: z.array(z.string()).default([]),
+  core: z.string().default(''), evidence: z.array(z.string()).default([]),
+  conclusion: z.string().default(''), quotes: z.array(z.string()).default([]),
+  model: z.string().default(''), fetchedAt: z.number().default(0),
+});
+export type SummaryRecord = z.infer<typeof summaryRecordSchema>;
 export const readingFontSchema = z.enum(['serif', 'sans', 'sourceHanSerif', 'sourceHanSans', 'wenkai', 'zhenkai', 'fangsong', 'custom']);
 export type ReadingFont = z.infer<typeof readingFontSchema>;
 const optionalText = z.string().nullish();
@@ -52,13 +63,19 @@ export const stateSchema = z.object({
     lineHeight: z.number().min(1.5).max(2.4).default(1.9), lineWidth: z.union([z.literal(28), z.literal(36), z.literal(44)]).default(36),
     selectionPopup: z.boolean().default(true), markdownFolders: z.array(z.string()).default([]), followedPodcasts: z.array(z.string()).default([]), podcastNames: z.record(z.string(), z.string()).default({}),
     lastSource: z.string().max(300).default(''),
+    summaryBaseUrl: z.string().max(300).default(''), summaryApiKey: z.string().max(500).default(''),
+    summaryModel: z.string().max(200).default(''), summaryStyle: summaryStyleSchema.default('overview'),
+    ttsVoice: z.string().max(100).default('zh-CN-XiaoxiaoNeural'), ttsRate: z.number().int().min(-50).max(50).default(0),
   }).default({ baseUrl: 'https://rss.qiaomu.ai', folder: 'Qiaomu RSS', defaultMode: 'rewrite', remoteImages: true, listWidth: 300,
-    fontSize: 19, fontFamily: 'fangsong', customFont: '', lineHeight: 1.9, lineWidth: 36, lastSource: '', selectionPopup: true, markdownFolders: [], followedPodcasts: [], podcastNames: {} }),
+    fontSize: 19, fontFamily: 'fangsong', customFont: '', lineHeight: 1.9, lineWidth: 36, lastSource: '', selectionPopup: true, markdownFolders: [], followedPodcasts: [], podcastNames: {},
+    summaryBaseUrl: '', summaryApiKey: '', summaryModel: '', summaryStyle: 'overview',
+    ttsVoice: 'zh-CN-XiaoxiaoNeural', ttsRate: 0 }),
   readIds: z.array(z.string()).default([]), favorites: z.record(z.string(), bundleSchema).default({}),
   entries: z.array(entrySchema).default([]), sources: z.array(sourceSchema).default([]),
   subscriptions: z.array(subscriptionSchema).default([]),
   channelStates: z.record(z.string(), channelStateSchema).catch({}).default({}),
   savedArticles: z.record(z.string(), bundleSchema).default({}),
+  summaries: z.record(z.string(), summaryRecordSchema).default({}),
   cache: z.record(z.string(), bundleSchema).default({}), updatedAt: z.number().default(0),
 });
 export type State = z.infer<typeof stateSchema>;

@@ -28,6 +28,8 @@ Read Qiaomu feeds and your own RSS / Atom subscriptions in a native Obsidian vie
 - 搜索当前载入的文章，按未读、收藏筛选。
 - 切换乔木改写、中文翻译、原文。没有生成的版本会明确显示缺失，不自动调用 AI。
 - 桌面端可从文章的「更多」菜单将当前阅读版本保存为 Markdown 或导出为 PDF，保存时自行选择位置和文件名；Markdown 图片另存为相邻资源文件夹，PDF 不包含播放器和工具栏。
+- **AI 总结**：在正文工具栏点击「AI 总结」，对当前显示的版本生成总结，可切换**速览 / 要点 / 结构 / 金句**四种样式，结果按文章缓存在本库，可随时重新生成。接口为任意 OpenAI 兼容服务（自填 Base URL、API Key、模型），设置页可一键测试连接；未配置时不发送任何请求，也不会自动把总结写入笔记。
+- **语音朗读（桌面端）**：总结卡片上的喇叭按钮会用 **Microsoft Edge 在线语音**朗读当前显示的那一种样式，可选晓晓、云希等 11 种音色与 5 档语速，再点一次停止，设置页提供试听。音质明显优于系统内置嗓音，因此只使用这一种引擎，不做系统语音回退；连接失败时直接显示原因。合成结果按文本缓存，重复朗读不再请求。只有在你点击朗读或试听时才会把总结文本发送到该语音服务。
 - 已读状态、本地收藏，以及最近 40 篇打开过的文章缓存。收藏文章另外保留完整内容。
 - 点击“记到今日日记”，以普通段落追加文章标题、内部回跳链接及“原文”链接，并在桌面端分屏打开今日日记；日记不存在时自动创建，重复点击不重复写入。
 - 摘录浮层默认开启，可在插件设置的“阅读与摘录”中关闭；选中正文可摘录到今日日记或当前笔记，也可将选中文字拖入处于编辑模式的笔记。日记中同篇文章只保留一个标题链接，后续摘录归入该文章段落。内部链接会在 RSS 阅读器中打开保存的文章版本；本地副本独立于最近文章缓存保留，依赖插件及其数据。
@@ -108,6 +110,8 @@ GitHub 发布和官方目录审核是独立流程；每个版本的审核结果�
 - **Network required for new content.** Opening the reader, selecting a channel/article or refreshing sends anonymous HTTPS GET requests to `https://rss.qiaomu.ai`, or the compatible HTTPS origin you explicitly configure. The service receives normal request metadata such as IP address, request time and requested article/channel IDs. See [Privacy](docs/PRIVACY.md).
 - **Personal feed requests go directly to the URLs you add or import.** These HTTP(S) hosts receive normal request metadata; feed addresses, groups and article bodies are not uploaded to Qiaomu. OPML import itself does not fetch content. Feed URLs may contain private access tokens and are stored unencrypted in plugin data and OPML exports; keep those exports private.
 - **No account, API key or payment is required for the public reading features in this release.** This plugin only reads existing published AI assets. It does not request new AI generation or send data to model providers. Future service availability is controlled by the service operator.
+- **AI 总结是可选功能，默认关闭。** 只有你在设置中填写接口地址和模型并主动点击「AI 总结」按钮时，当前文章的纯文本才会发送到**你指定的** OpenAI 兼容服务；API Key 以明文保存在本库插件数据中，不会发送给乔木。不配置则不会发出任何请求。总结结果缓存在本库，不会自动写入笔记。
+- **语音朗读同样按需触发。** 只有点击喇叭按钮或设置页「试听」时，才会把**总结文本**（不是文章正文）发送到 Microsoft 的 Edge 在线语音服务用于合成；合成不产生费用，但需要联网，特殊网络环境可能无法连接。
 - **Article images are enabled by default.** The plugin downloads article images and list thumbnails from their hosts and displays local Blob URLs. Images are cached within this plugin’s vault configuration directory (up to 64 MB / 100 files, 8 MB per image). Image hosts receive normal image requests; cached images can be read offline. You can disable images in settings. Clicking article links opens the linked website in your browser.
 - **Media playback is user-initiated.** Podcast audio is fetched from the media URL supplied by the selected entry when played. Opening a YouTube article loads a sandboxed YouTube player preview without autoplay; YouTube may receive normal request metadata and apply its own privacy policy before playback. See [Privacy](docs/PRIVACY.md).
 - **About-page QR images.** Opening the About settings tab loads the reward and public-account QR images from `https://radio.qiaomu.ai`; that host receives normal image request metadata. The images are not loaded while reading articles.

@@ -11,7 +11,8 @@ import { saveArticleMarkdown, saveArticlePdf } from './desktop-export';
 import { renderMedia, stopMedia, youtubeEmbedUrl } from './media';
 import { sameRemoteContent, uniqueRemoteEntries, wechatArticleKey, xiaoyuzhouEpisodeKey } from './wechat-articles';
 import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, qiaomuChannelDivider, qiaomuFeaturedEntries, readerChannelSources } from './discovery';
-import { modeLabels, modeSchema, podcastDefaultMode, readingFontSchema, safeUrl, titleOf, type ChannelState, type Bundle, type Entry, type Mode } from './model';
+import { modeLabels, modeSchema, podcastDefaultMode, readingFontSchema, safeUrl, summaryStyleLabels, summaryStyles, titleOf, type ChannelState, type Bundle, type Entry, type Mode, type SummaryRecord, type SummaryStyle } from './model';
+import { synthesizeCached, summarySpeechText } from './tts';
 export const VIEW_TYPE = 'qiaomu-ai-rss-reader';
 type Filter = 'all' | 'unread' | 'favorites';
 function feedHost(url: string) { try { return new URL(url).hostname; } catch { return 'RSS'; } }
@@ -96,6 +97,14 @@ export class ReaderView extends ItemView {
   private mode: Mode;
   private closed = false;
   private message = '';
+  private summaryLoading = false;
+  private summaryError = '';
+  /** Transient per-article style; a newly opened article always starts from the configured default. */
+  private summaryStyle: SummaryStyle = 'overview';
+  private speechAudio?: HTMLAudioElement;
+  private speechUrl?: string;
+  private speechRun = 0;
+  private speechLoading = false;
   private blobUrls: string[] = [];
   private thumbnailUrls = new Map<string, string>();
   private thumbnailPending = new Map<string, Promise<string | null>>();
@@ -160,7 +169,7 @@ export class ReaderView extends ItemView {
   }
   onClose(): Promise<void> {
     stopMedia(this.reader);
-    this.saveChannel(); this.channelPicker?.close(false); this.stopRestoring();
+    this.saveChannel(); this.channelPicker?.close(false); this.stopRestoring(); this.stopSpeech();
     if (this.checkpointTimer) window.clearTimeout(this.checkpointTimer);
     this.selectionCapture?.dispose();
     this.closed = true; this.listVersion++; this.articleVersion++; this.clearImages(); this.clearThumbnails(); this.contentEl.onkeydown = null;
@@ -177,6 +186,8 @@ export class ReaderView extends ItemView {
     const groupExists = remembered.startsWith('@group:') && this.plugin.state.subscriptions.some(feed => feed.group === remembered.slice(7));
     this.focused = false; this.source = remembered !== 'levelingup' && (remembered === '@local' || this.plugin.state.settings.markdownFolders.some(folder => vaultSourceId(folder) === remembered) || groupExists || localExists || this.plugin.state.settings.followedPodcasts.includes(remembered) || readerChannelSources(this.plugin.state.sources).some(source => source.id === remembered)) ? remembered : '';
     this.cursor = ''; this.bundle = null; this.loading = false; this.hasMore = false;
+    this.stopSpeech();
+    this.summaryLoading = false; this.summaryError = ''; this.summaryStyle = this.plugin.state.settings.summaryStyle;
     this.mode = this.plugin.state.settings.defaultMode;
     this.entries = this.personalScope() ? this.localEntries() : this.source ? [] : qiaomuFeaturedEntries(this.plugin.state.entries);
     this.build();
@@ -511,7 +522,7 @@ export class ReaderView extends ItemView {
     this.mode = entry.origin === 'local' || entry.origin === 'vault' ? 'original'
       : podcastDefaultMode(entry, state.sources, state.settings.followedPodcasts)
         ?? (entry.audio || youtubeEmbedUrl(entry.videoUrl || entry.link) ? 'original' : state.settings.defaultMode);
-    this.message = ''; this.articleLoading = true; this.reader.setAttribute('aria-busy', 'true');
+    this.message = ''; this.stopSpeech(); this.speechLoading = false; this.summaryLoading = false; this.summaryError = ''; this.summaryStyle = state.settings.summaryStyle; this.articleLoading = true; this.reader.setAttribute('aria-busy', 'true');
     this.contentEl.addClass('qrs-has-article'); this.renderReader(); this.reader.scrollTop = 0; this.lastReaderTop = 0; this.reader.focus({ preventScroll: true }); this.renderList();
     if (resume) { this.mode = resume.mode; this.pendingScroll = { listTop: resume.listTop, readerTop: resume.readerTop }; this.renderReader(); this.restoreOffsets(); }
     if (entry.origin === 'local') {
@@ -537,7 +548,7 @@ export class ReaderView extends ItemView {
   showSavedArticle(bundle: Bundle, mode: Mode) {
     this.stopRestoring();
     this.articleVersion++; this.articleLoading = false;
-    this.bundle = bundle; this.mode = mode; this.message = '';
+    this.bundle = bundle; this.mode = mode; this.message = ''; this.stopSpeech(); this.speechLoading = false; this.summaryLoading = false; this.summaryError = ''; this.summaryStyle = this.plugin.state.settings.summaryStyle;
     this.reader.setAttribute('aria-busy', 'false'); this.contentEl.addClass('qrs-has-article');
     this.renderReader(); this.reader.scrollTop = 0; this.lastReaderTop = 0; this.reader.focus({ preventScroll: true }); this.renderList();
   }
@@ -652,6 +663,10 @@ export class ReaderView extends ItemView {
       await this.plugin.persist(); this.renderReader(true); this.renderList();
     }));
     readButton.setAttribute('aria-pressed', String(read));
+    const summarized = !!this.plugin.state.summaries[bundle.entry.id];
+    const summaryButton = this.addIconButton(actions, 'sparkles', summarized ? '重新生成 AI 总结' : 'AI 总结', () => { void this.generateSummary(summarized); });
+    summaryButton.toggleClass('is-summarized', summarized);
+    if (this.summaryLoading) summaryButton.addClass('is-loading');
     this.addIconButton(actions, 'notebook-pen', '记到今日日记', () => this.noteCurrent());
     const more = this.addIconButton(actions, 'ellipsis', '更多文章操作', () => {
       const menu = new Menu(); const link = safeUrl(bundle.entry.link || '');
@@ -706,6 +721,7 @@ export class ReaderView extends ItemView {
     }
     if (this.message) article.createDiv({ cls: 'qrs-feedback', text: this.message, attr: { role: 'status' } });
     if (!this.articleLoading) renderMedia(article, bundle.entry);
+    this.renderSummaryCard(article, bundle);
     try {
       if (bundle.entry.origin === 'vault' && bundle.entry.markdown != null) {
         const prose = article.createDiv('qrs-prose');
@@ -720,6 +736,131 @@ export class ReaderView extends ItemView {
       }
     } catch { article.createDiv({ cls: 'qrs-empty', text: '正文无法显示，请打开原文阅读。' }); }
     this.reader.scrollTop = scroll; this.restoreOffsets();
+  }
+  private renderSummaryCard(article: HTMLElement, bundle: Bundle) {
+    article.querySelector('.qrs-summary-card')?.remove();
+    const record = this.plugin.state.summaries[bundle.entry.id];
+    if (!record && !this.summaryLoading && !this.summaryError) return;
+    const card = article.createDiv({ cls: 'qrs-summary-card' });
+    const anchor = article.querySelector('.qrs-feedback, .qrs-prose, .qrs-empty');
+    if (anchor) article.insertBefore(card, anchor);
+    const head = card.createDiv('qrs-summary-head');
+    const label = head.createDiv('qrs-summary-label-title');
+    setIcon(label.createSpan('qrs-summary-icon'), 'sparkles');
+    label.createSpan({ text: 'AI 总结' });
+    if (record && !this.summaryLoading) {
+      const styles = head.createDiv('qrs-summary-styles');
+      for (const style of summaryStyles) {
+        const button = styles.createEl('button', { text: summaryStyleLabels[style], attr: { 'aria-pressed': String(style === this.summaryStyle) } });
+        button.onclick = () => { this.summaryStyle = style; this.renderSummaryCard(article, bundle); };
+      }
+    }
+    const speaking = this.speechPlaying;
+    if (record && !this.summaryLoading) {
+      const speaker = this.addIconButton(head, speaking ? 'square' : 'volume-2', speaking ? '停止朗读' : this.speechLoading ? '正在合成语音…' : '朗读总结', () => { void this.toggleSpeech(); });
+      speaker.addClass('qrs-summary-action');
+      if (speaking || this.speechLoading) speaker.addClass('is-active');
+    }
+    this.addIconButton(head, 'refresh-cw', record ? '重新生成总结' : '生成总结', () => { void this.generateSummary(true); }).addClass('qrs-summary-action');
+    if (this.summaryLoading) { card.createDiv({ cls: 'qrs-summary-body qrs-summary-pending', text: '正在生成总结…' }); return; }
+    if (this.summaryError) { card.createDiv({ cls: 'qrs-summary-body qrs-summary-error', text: this.summaryError, attr: { role: 'status' } }); return; }
+    if (!record) return;
+    const body = card.createDiv('qrs-summary-body');
+    this.renderSummaryBody(body, record, this.summaryStyle);
+    card.createDiv({ cls: 'qrs-summary-meta', text: `${record.model || 'AI'}${record.fetchedAt ? ` · ${new Date(record.fetchedAt).toLocaleString()}` : ''} · AI 生成，可能有误` });
+  }
+  private renderSummaryBody(body: HTMLElement, record: SummaryRecord, style: SummaryStyle) {
+    const paragraph = (value: string) => { if (value.trim()) body.createEl('p', { text: value.trim() }); };
+    const bulletList = (items: string[], cls?: string) => { const list = body.createEl('ul', cls ? { cls } : undefined); for (const item of items) list.createEl('li', { text: item }); };
+    if (style === 'overview') { paragraph(record.overview || record.core || '（模型没有返回速览内容）'); return; }
+    if (style === 'bullets') { if (record.bullets.length) bulletList(record.bullets); else paragraph(record.overview); return; }
+    if (style === 'structure') {
+      if (record.core) { const block = body.createDiv('qrs-summary-block'); block.createDiv({ cls: 'qrs-summary-caption', text: '核心观点' }); block.createEl('p', { text: record.core }); }
+      if (record.evidence.length) { const block = body.createDiv('qrs-summary-block'); block.createDiv({ cls: 'qrs-summary-caption', text: '关键论据' }); const list = block.createEl('ul'); for (const item of record.evidence) list.createEl('li', { text: item }); }
+      if (record.conclusion) { const block = body.createDiv('qrs-summary-block'); block.createDiv({ cls: 'qrs-summary-caption', text: '结论' }); block.createEl('p', { text: record.conclusion }); }
+      if (!record.core && !record.evidence.length && !record.conclusion) paragraph(record.overview);
+      return;
+    }
+    if (record.quotes.length) bulletList(record.quotes, 'qrs-summary-quotes'); else paragraph(record.overview);
+  }
+  private async generateSummary(force: boolean) {
+    const bundle = this.bundle;
+    if (!bundle || this.summaryLoading) return;
+    if (!this.plugin.summaryConfigured()) {
+      new Notice('请先在插件设置的「AI 总结」中填写接口地址和模型名称。');
+      this.plugin.openSettings();
+      return;
+    }
+    const entryId = bundle.entry.id;
+    if (force) delete this.plugin.state.summaries[entryId];
+    this.summaryLoading = true; this.summaryError = '';
+    const article = this.reader.querySelector<HTMLElement>('.qrs-article');
+    if (article) this.renderSummaryCard(article, bundle);
+    try {
+      const record = await this.plugin.summarizeArticle(bundle, this.mode, this.contentEl.ownerDocument);
+      if (this.closed || this.bundle?.entry.id !== entryId) return;
+      this.plugin.state.summaries[entryId] = record;
+      await this.plugin.persist();
+    } catch (error) {
+      if (this.closed || this.bundle?.entry.id !== entryId) return;
+      this.summaryError = error instanceof Error ? error.message : 'AI 总结失败，请重试。';
+    } finally {
+      this.summaryLoading = false;
+      if (!this.closed && this.bundle?.entry.id === entryId) {
+        const node = this.reader.querySelector<HTMLElement>('.qrs-article');
+        if (node) this.renderSummaryCard(node, this.bundle);
+      }
+    }
+  }
+  private get speechPlaying() { return !!this.speechAudio; }
+  private stopSpeech() {
+    this.speechRun++;
+    if (this.speechAudio) {
+      this.speechAudio.onended = null; this.speechAudio.onerror = null;
+      this.speechAudio.pause(); this.speechAudio.src = ''; this.speechAudio = undefined;
+    }
+    if (this.speechUrl) { URL.revokeObjectURL(this.speechUrl); this.speechUrl = undefined; }
+  }
+  private refreshSummaryCard() {
+    const article = this.reader.querySelector<HTMLElement>('.qrs-article');
+    if (article && this.bundle) this.renderSummaryCard(article, this.bundle);
+  }
+  /** Starts Edge audio playback and returns once it has begun; completion clears the speaking state. */
+  private playAudio(blob: Blob, run: number) {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    this.speechUrl = url; this.speechAudio = audio;
+    const done = (message?: string) => {
+      if (this.speechRun !== run) return;
+      this.stopSpeech(); this.refreshSummaryCard();
+      if (message) new Notice(message);
+    };
+    audio.onended = () => done();
+    audio.onerror = () => done('语音播放失败。');
+    void audio.play().catch(() => done('语音播放失败，请检查系统音量。'));
+  }
+  private async toggleSpeech() {
+    const bundle = this.bundle;
+    const record = bundle ? this.plugin.state.summaries[bundle.entry.id] : undefined;
+    if (!bundle || !record) return;
+    if (this.speechPlaying) { this.stopSpeech(); this.refreshSummaryCard(); return; }
+    if (this.speechLoading) return;
+    const text = summarySpeechText(record, this.summaryStyle);
+    if (!text) { new Notice('这条总结没有可朗读的内容。'); return; }
+    const entryId = bundle.entry.id;
+    const { ttsVoice: voice, ttsRate: rate } = this.plugin.state.settings;
+    const run = ++this.speechRun;
+    this.speechLoading = true; this.refreshSummaryCard();
+    try {
+      const blob = await synthesizeCached(text, voice, rate);
+      if (this.closed || this.speechRun !== run) return;
+      this.playAudio(blob, run);
+    } catch (error) {
+      if (!this.closed && this.speechRun === run) new Notice(error instanceof Error ? error.message : '语音合成失败，请检查网络。');
+    } finally {
+      this.speechLoading = false;
+      if (!this.closed && this.bundle?.entry.id === entryId) this.refreshSummaryCard();
+    }
   }
   private renderAppearanceSettings(anchor: HTMLElement) {
     const settings = this.plugin.state.settings;

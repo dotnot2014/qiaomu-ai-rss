@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.20.0 — 2026-09-15
+
+- Rebase the AI summary and speech features onto upstream 0.19.8, keeping the podcast, source-transcript, WeChat and Markdown/PDF export work intact.
+- Add AI summary: one toolbar action summarizes the version you are reading, with a switchable 速览 / 要点 / 结构 / 金句 layout, cached per article and regenerable.
+- Add Edge speech playback (desktop): the speaker button reads the style on screen using Microsoft Edge online voices, with 11 voices, 5 rates and a settings preview. Edge is the only engine because the device voices are not good enough; failures report their real cause.
+- Add a dedicated 「AI 总结」 settings tab for any OpenAI-compatible endpoint (Base URL, API key, model) with a connection test. An unconfigured endpoint sends nothing.
+- Enable `minify` in the esbuild build. Upstream shipped an unminified bundle that sat 258 bytes under the 5 MB budget, so the new code could not fit; minifying keeps the documented budget with room to spare.
+
+## 0.19.4 — 2026-09-15
+
+- Reimplement speech playback as Edge-only. The device voices were audibly worse, so the fallback chain is removed and a failed request now reports its real cause instead of silently degrading.
+- Target the desktop reader; the system-voice engine and its 语音引擎 setting are gone.
+- Cache synthesized audio by text, voice and rate so replaying a summary does not re-request it, and stop playing when the article changes or the view closes.
+
+## 0.19.2 — 2026-09-15
+
+- Add speech playback for AI summaries using Microsoft Edge online voices: a speaker button reads the style currently on screen, and a second click stops it.
+- Add 语音朗读 settings (voice, rate, preview). Only summary text is sent to the speech service, and only when the button is pressed.
+- Keep the Edge request version in one constant, because an outdated `Sec-MS-GEC-Version` is rejected with HTTP 403.
+
+## 0.19.1 — 2026-09-15
+
+- Fix the AI summary style leaking between articles: the selected layout is now per-article state, and every newly opened article starts from the configured default (速览). Changing it inside an article no longer writes to settings.
+
+## 0.19.0 — 2026-09-15
+
+- Add AI summary: one toolbar action summarizes the version you are reading, with a switchable 速览 / 要点 / 结构 / 金句 layout. Results are cached per article and can be regenerated.
+- Add a dedicated 「AI 总结」 settings tab for any OpenAI-compatible endpoint (Base URL, API key, model) with a connection test. The key is stored only in this vault's plugin data.
+- Make no request when the endpoint is unconfigured; article plain text is sent to the endpoint you choose, and generated summaries are never written to notes automatically.
+
 ## 0.18.2 — 2026-09-07
 
 - Use a calm sage article selection palette with separate dark-mode and hover states; preserve row density and remove the tinted inset frame.
