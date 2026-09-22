@@ -1,4 +1,8 @@
-# Validation — 0.19.0 candidate
+# Validation — 0.19.1 candidate
+
+## 0.19.1 podcast source repair (2026-09-22)
+
+The Qiaomu Reader API exposes two podcast sources backed by YouTube channel feeds: `allin` and `joerogan`. A real All-In Shorts entry (`5753cbb2052639ff4aeb6a47b17fb518`) returned 404 `不是支持的播客单集` from `/api/entry/:id/podscribe-transcript`, while a full All-In interview returned a 25,870-character transcript. The plugin now recommends and migrates both shows to their verified Podscribe episode catalogs instead of showing YouTube clips as podcast episodes. `npm run check` passes 76 tests, lint, TypeScript and build. In a real Obsidian `rockfish` host with 0.19.1 installed, each show listed 20 episodes and the first article loaded a source transcript (All-In 26,591 rendered HTML characters, Joe Rogan 158,530), with no warnings. Automated migration coverage keeps old read/favorite data; a physical iPhone check remains outstanding.
 
 ## 0.19.0 local candidate (2026-09-22)
 

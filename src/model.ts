@@ -62,8 +62,22 @@ export const stateSchema = z.object({
   cache: z.record(z.string(), bundleSchema).default({}), updatedAt: z.number().default(0),
 });
 export type State = z.infer<typeof stateSchema>;
+const podcastSourceUpgrades: Record<string, string> = {
+  allin: 'podscribe-all-in-with-chamath-jason-sacks-friedberg',
+  joerogan: 'podscribe-the-joe-rogan-experience',
+};
 export function initialState(data: unknown): State {
   const state = stateSchema.parse(data ?? {});
+  state.settings.followedPodcasts = [...new Set(state.settings.followedPodcasts.map(id => podcastSourceUpgrades[id] || id))];
+  for (const [oldId, newId] of Object.entries(podcastSourceUpgrades)) {
+    if (state.settings.podcastNames[oldId] && !state.settings.podcastNames[newId]) state.settings.podcastNames[newId] = state.settings.podcastNames[oldId];
+    delete state.settings.podcastNames[oldId];
+  }
+  const previousSource = state.settings.lastSource;
+  state.settings.lastSource = podcastSourceUpgrades[previousSource] || previousSource;
+  if (podcastSourceUpgrades[previousSource] && !state.settings.followedPodcasts.includes(state.settings.lastSource)) {
+    state.settings.followedPodcasts.push(state.settings.lastSource);
+  }
   const last = state.settings.lastSource;
   if (state.sources.some(source => source.id === last && source.category === 'podcast') && !state.settings.followedPodcasts.includes(last)) {
     state.settings.followedPodcasts.push(last);

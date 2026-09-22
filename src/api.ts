@@ -3,6 +3,9 @@ import { bundleSchema, entrySchema, pageSchema, rewriteSchema, serviceUrl, sourc
 const remoteEntrySchema = entrySchema.transform(entry => ({ ...entry, origin: 'qiaomu' as const, markdown: undefined, markdownPath: undefined }));
 export interface HttpResponse { status: number; text: string }
 export type Transport = (url: string) => Promise<HttpResponse>;
+class ApiStatusError extends Error {
+  constructor(readonly status: number) { super(`服务暂不可用（HTTP ${status}）。`); }
+}
 const transcriptSchema = z.object({ transcript: z.string(), sourceUrl: z.string().optional() });
 const episodePageSchema = z.object({ episodes: z.array(z.object({ show_slug: z.string(), episode_slug: z.string(), title: z.string(), description: z.string().optional(), url: z.string().optional(), published_at: z.string().nullish(), published_relative: z.string().nullish(), views: z.number().int().nonnegative().nullish(), word_count: z.number().int().nonnegative().nullish(), duration_seconds: z.number().int().nonnegative().nullish() })), pagination: z.object({ next_page: z.number().nullable().optional(), has_next: z.boolean().optional() }).nullable().optional() });
 function exactPodcastDate(value: string | null | undefined): { published: string; publishedTs: number } | null {
@@ -27,7 +30,7 @@ export class RssApi {
         this.transport(this.base + path),
         new Promise<never>((_, reject) => { timer = window.setTimeout(() => reject(new Error('请求超时，请重试。')), 20000); }),
       ]);
-      if (result.status < 200 || result.status >= 300) throw new Error(`服务暂不可用（HTTP ${result.status}）。`);
+      if (result.status < 200 || result.status >= 300) throw new ApiStatusError(result.status);
       if (result.text.length > 12_000_000) throw new Error('服务返回的数据过大。');
       const parsed = schema.safeParse(JSON.parse(result.text) as unknown);
       if (!parsed.success) throw new Error('服务返回的数据格式不兼容。');
@@ -82,10 +85,21 @@ export class RssApi {
     if (translation.status === 'rejected') warnings.push('翻译暂时无法加载');
     const entry = detail.value.entry;
     if (entry.sourceId === 'allin' || entry.sourceId === 'joerogan' || entry.sourceId.startsWith('podscribe-')) {
-      try {
-        const { transcript, sourceUrl } = await this.get(`${path}/podscribe-transcript`, transcriptSchema);
-        entry.content = transcriptHtml(transcript, sourceUrl);
-      } catch { entry.content = ''; warnings.push('源文稿暂时无法取得，可稍后重新加载'); }
+      const shortClip = /^(?:https:\/\/)?(?:www\.)?youtube\.com\/shorts\/[a-zA-Z0-9_-]+(?:[/?#]|$)/.test(entry.link || '');
+      if (shortClip) {
+        entry.content = '';
+        warnings.push('这是节目短视频片段，源文稿 API 没有对应的完整单集；可打开原视频。');
+      } else {
+        try {
+          const { transcript, sourceUrl } = await this.get(`${path}/podscribe-transcript`, transcriptSchema);
+          entry.content = transcriptHtml(transcript, sourceUrl);
+        } catch (error) {
+          entry.content = '';
+          warnings.push(error instanceof ApiStatusError && [404, 409, 422].includes(error.status)
+            ? '尚未找到与这条视频唯一对应的完整源文稿；可打开原视频。'
+            : '源文稿暂时无法取得，可稍后重新加载。');
+        }
+      }
     } else if (entry.sourceId && /^lexfridman$/.test(entry.sourceId)) {
       warnings.push('此节目目前只提供节目原文，完整源文稿尚未开放');
     }
