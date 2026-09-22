@@ -172,7 +172,7 @@ export class ReaderView extends ItemView {
     const remembered = this.plugin.state.settings.lastSource;
     const localExists = this.plugin.state.subscriptions.some(feed => feed.id === remembered);
     const groupExists = remembered.startsWith('@group:') && this.plugin.state.subscriptions.some(feed => feed.group === remembered.slice(7));
-    this.focused = false; this.source = remembered === '@local' || this.plugin.state.settings.markdownFolders.some(folder => vaultSourceId(folder) === remembered) || groupExists || localExists || this.plugin.state.settings.followedPodcasts.includes(remembered) || this.plugin.state.sources.some(source => source.id === remembered) ? remembered : '';
+    this.focused = false; this.source = remembered !== 'levelingup' && (remembered === '@local' || this.plugin.state.settings.markdownFolders.some(folder => vaultSourceId(folder) === remembered) || groupExists || localExists || this.plugin.state.settings.followedPodcasts.includes(remembered) || this.plugin.state.sources.some(source => source.id === remembered)) ? remembered : '';
     this.cursor = ''; this.bundle = null; this.loading = false; this.hasMore = false;
     this.mode = this.plugin.state.settings.defaultMode;
     this.entries = this.personalScope() ? this.localEntries() : this.source ? [] : this.plugin.state.entries;
@@ -284,7 +284,7 @@ export class ReaderView extends ItemView {
   showSubscription(id: string) {
     if (this.plugin.state.subscriptions.some(feed => feed.id === id)) this.selectSource(id, false);
   }
-  showRemoteSource(id: string) { this.selectSource(id); }
+  showRemoteSource(id: string) { if (id !== 'levelingup') this.selectSource(id); }
   private pickChannel() {
     if (this.channelPicker) { this.channelPicker.close(); return; }
     this.channelPicker = new ChannelPicker(this.channelButton, this.channelChoices(), this.source, source => this.selectSource(source.id), () => { this.channelPicker = undefined; });
@@ -415,6 +415,7 @@ export class ReaderView extends ItemView {
     return uniqueWechatEntries(entries, this.bundle?.entry.id).filter(entry => (this.vaultScope() ? entry.origin === 'vault' && entry.sourceId === this.source : this.personalScope()
       ? entry.origin === 'local' && (this.source === '@local' || this.selectedFeeds().some(feed => feed.id === entry.sourceId))
       : entry.origin !== 'local' && entry.origin !== 'vault' && (!this.source || entry.sourceId === this.source)) &&
+      entry.sourceId !== 'levelingup' &&
       (this.filter !== 'unread' || !this.relatedWechatIds(entry).some(id => state.readIds.includes(id)) || this.unreadSession.has(entry.id) || entry.id === this.bundle?.entry.id) &&
       (!query || `${titleOf(entry)} ${entry.title} ${entry.summary || ''} ${this.sourceName(entry)}`.toLocaleLowerCase().includes(query)));
   }
