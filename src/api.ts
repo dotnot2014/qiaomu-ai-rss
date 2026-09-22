@@ -15,11 +15,10 @@ function exactPodcastDate(value: string | null | undefined): { published: string
   return Number.isFinite(publishedTs) ? { published: new Date(publishedTs).toISOString(), publishedTs } : null;
 }
 const directTranscriptSchema = z.object({ transcript: z.object({ segments: z.array(z.object({ text: z.string() })) }), episode: z.object({ url: z.string().optional() }).optional() });
-function transcriptHtml(value: string, sourceUrl?: string): string {
+function transcriptHtml(value: string): string {
   const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const paragraphs = value.split(/\n+/).map(line => line.trim()).filter(Boolean);
-  const source = sourceUrl && /^https:\/\//.test(sourceUrl) ? `<p><a href="${escape(sourceUrl)}">源文稿页面</a></p>` : '';
-  return `${source}${paragraphs.map(line => `<p>${escape(line)}</p>`).join('')}`;
+  return paragraphs.map(line => `<p>${escape(line)}</p>`).join('');
 }
 function normalizedPodcastTitle(value: string): string {
   return value.normalize('NFKC').toLowerCase().replace(/&amp;/g, '&').replace(/[^\p{Letter}\p{Number}]+/gu, ' ').trim();
@@ -92,7 +91,7 @@ export class RssApi {
       const detail = await this.get(`/api/podscribe/episodes/${slug}/${episode}/transcript`, directTranscriptSchema);
       const text = detail.transcript.segments.map(segment => segment.text.trim()).filter(Boolean).join('\n');
       if (!text) throw new Error('这期播客暂无原文稿。');
-      const entry = { ...preview, content: transcriptHtml(text, detail.episode?.url || preview.link || undefined) };
+      const entry = { ...preview, content: transcriptHtml(text) };
       const videoSource = slug === 'all-in-with-chamath-jason-sacks-friedberg' ? 'allin' : slug === 'the-joe-rogan-experience' ? 'joerogan' : null;
       if (videoSource) {
         try {
@@ -120,8 +119,8 @@ export class RssApi {
         warnings.push('这是节目短视频片段，源文稿 API 没有对应的完整单集；可打开原视频。');
       } else {
         try {
-          const { transcript, sourceUrl } = await this.get(`${path}/podscribe-transcript`, transcriptSchema);
-          entry.content = transcriptHtml(transcript, sourceUrl);
+          const { transcript } = await this.get(`${path}/podscribe-transcript`, transcriptSchema);
+          entry.content = transcriptHtml(transcript);
         } catch (error) {
           entry.content = '';
           warnings.push(error instanceof ApiStatusError && [404, 409, 422].includes(error.status)

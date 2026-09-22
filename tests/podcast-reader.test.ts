@@ -55,6 +55,7 @@ describe('QMReader podcast integration', () => {
     });
     const { bundle } = await api.article(id);
     expect(bundle.entry.content).toContain('First &lt;unsafe&gt; line');
+    expect(bundle.entry.content).not.toContain('源文稿页面');
     expect(bundle.entry.content).not.toContain('Only a short summary');
     expect(bundle.rewrite?.body).toBe('乔木转写正文');
   });
@@ -105,6 +106,7 @@ describe('QMReader podcast integration', () => {
     const page = await api.podcastEpisodes('podscribe-invest-like-the-best');
     const { bundle } = await api.article(page.entries[0].id, page.entries[0]);
     expect(bundle.entry.content).toContain('The full original text.');
+    expect(bundle.entry.content).not.toContain('源文稿页面');
     expect(bundle.rewrite).toBeNull();
   });
   it('links a direct All-In transcript to a uniquely matching full YouTube episode', async () => {
