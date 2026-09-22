@@ -1,7 +1,7 @@
 import { addSearchClear } from './search-clear';
 import { Component, Platform, setIcon } from 'obsidian';
 export type ChannelSection = '聚合' | '订阅分组' | '乔木频道' | '已订阅播客' | '我的订阅源' | '库内文件夹';
-export interface ChannelChoice { id: string; name: string; section: ChannelSection; subtitle: string; icon?: string; monogram?: string; group?: string }
+export interface ChannelChoice { id: string; name: string; section: ChannelSection; subtitle: string; icon?: string; monogram?: string; group?: string; divider?: string }
 export function channelMark(parent: HTMLElement, choice: ChannelChoice) {
   const mark = parent.createSpan('qrs-channel-mark');
   if (choice.icon) setIcon(mark, choice.icon); else mark.setText(choice.monogram || choice.name.trim().slice(0, 1).toLocaleUpperCase());
@@ -85,7 +85,7 @@ export class ChannelPicker extends Component {
       }
     };
     if (query) {
-      const matches = this.choices.filter(c => `${c.name} ${c.subtitle} ${c.section} ${c.group || ''}`.toLocaleLowerCase().includes(query));
+      const matches = this.choices.filter(c => `${c.name} ${c.subtitle} ${c.section} ${c.divider || ''} ${c.group || ''}`.toLocaleLowerCase().includes(query));
       matches.forEach(c => row(c));
       if (!matches.length) this.rows.createDiv({ cls: 'qrs-channel-empty', text: '没有匹配频道' });
       return;
@@ -96,6 +96,15 @@ export class ChannelPicker extends Component {
       const groups = section === '我的订阅源' ? this.choices.filter(c => c.section === '订阅分组') : [];
       if (!choices.length && !groups.length) continue;
       this.rows.createDiv({ cls: 'qrs-channel-section', text: label });
+      if (section === '乔木频道') {
+        for (const divider of ['微信公众号', '小宇宙', 'YouTube', 'Newsletter', '资讯', '博客与网站']) {
+          const items = choices.filter(choice => choice.divider === divider);
+          if (!items.length) continue;
+          this.rows.createDiv({ cls: 'qrs-channel-subsection', text: divider });
+          items.forEach(choice => row(choice));
+        }
+        continue;
+      }
       for (const group of groups) {
         row(group); if (this.expanded.has(group.id.slice(7))) choices.filter(c => c.group === group.id.slice(7)).forEach(c => row(c, true));
       }

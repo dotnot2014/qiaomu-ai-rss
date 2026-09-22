@@ -9,7 +9,7 @@ import { readingFonts, selectableFonts, fontFamily } from './fonts';
 import { articleFragment } from './content';
 import { renderMedia, stopMedia, youtubeEmbedUrl } from './media';
 import { sameWechatArticle, uniqueWechatEntries, wechatArticleKey } from './wechat-articles';
-import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, readerChannelSources } from './discovery';
+import { featuredXiaoyuzhouPodcasts, prependFeaturedPodcasts, qiaomuChannelDivider, readerChannelSources } from './discovery';
 import { modeLabels, modeSchema, podcastDefaultMode, readingFontSchema, safeUrl, titleOf, type ChannelState, type Bundle, type Entry, type Mode } from './model';
 export const VIEW_TYPE = 'qiaomu-ai-rss-reader';
 type Filter = 'all' | 'unread' | 'favorites';
@@ -263,7 +263,7 @@ export class ReaderView extends ItemView {
       ...groups.map(group => ({ id: `@group:${group}`, name: group, section: '订阅分组' as const,
         subtitle: `${feeds.filter(feed => feed.group === group).length} 个订阅源`, icon: 'folder' })),
       ...readerChannelSources(this.plugin.state.sources).map(source => ({ id: source.id, name: source.name, section: '乔木频道' as const,
-        subtitle: ({ article: '文章', news: '新闻', podcast: '播客' } as Record<string, string>)[source.category || ''] || source.category || '乔木内容频道', monogram: source.name.trim().slice(0, 1) })),
+        subtitle: ({ article: '文章', news: '新闻', podcast: '播客' } as Record<string, string>)[source.category || ''] || source.category || '乔木内容频道', monogram: source.name.trim().slice(0, 1), divider: qiaomuChannelDivider(source) })),
       ...this.plugin.state.settings.followedPodcasts.filter(id => !featuredXiaoyuzhouPodcasts(this.plugin.state.sources).some(source => source.id === id)).map(id => {
         const source = this.plugin.state.sources.find(item => item.id === id && item.enabled !== false);
         return { id, name: this.plugin.state.settings.podcastNames[id] || source?.name || id.replace(/^podscribe-/, ''), section: '已订阅播客' as const,

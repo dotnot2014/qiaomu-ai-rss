@@ -260,6 +260,7 @@
 .is-mobile .qrs-settings-tabs button { min-height:44px; }
 .qrs-settings-qr .setting-item-control img { width:160px; height:160px; object-fit:contain; border-radius:8px; }
 .is-mobile .qrs-settings-qr.setting-item { align-items:flex-start; }
+.qrs-channel-subsection { color:var(--text-muted); font-size:11px; font-weight:600; padding:10px 10px 4px; }
 .qrs-reading-setting[hidden] { display:none; }
 .qrs-welcome { width:min(100%,440px); margin:clamp(48px,14vh,160px) auto 48px; padding:0 28px; text-align:left; }
 .qrs-welcome-brand { font-size:10px; font-weight:600; letter-spacing:.2em; color:var(--text-faint); margin-bottom:28px; }
