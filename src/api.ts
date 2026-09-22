@@ -27,8 +27,8 @@ function normalizedPodcastTitle(value: string): string {
 function episodeVideoInDescription(description: string | undefined): string | null {
   if (!description) return null;
   // Only trust a link explicitly labelled as this episode's video, not a guest's channel or a clip.
-  const match = /(?:watch|view)\s+(?:the\s+|this\s+)?episode\s+on\s+youtube\s*[:：]?\s*(https:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[A-Za-z0-9_-]{11}(?:[^\s<]*)?)/i.exec(description);
-  const url = match?.[1]?.replace(/[.,;，。；]+$/, '') || null;
+  const match = /(?:watch|view)\s+(?:the\s+|this\s+)?episode\s+on\s+youtube\s*[:：]?\s*(https:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[A-Za-z0-9_-]{11})/i.exec(description);
+  const url = match?.[1] || null;
   return youtubeEmbedUrl(url) ? url : null;
 }
 function matchingVideo(episode: Entry, candidates: Entry[], sourceId: string): string | null {
